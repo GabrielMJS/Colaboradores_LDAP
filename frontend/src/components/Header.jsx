@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { UNIDADES } from "../data/mockData";
 
 export default function Header({ search, onSearch, unidade, onUnidade }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const theme = useTheme();
+  const navigate = useNavigate();
 
   return (
     <header style={{
@@ -66,8 +68,35 @@ export default function Header({ search, onSearch, unidade, onUnidade }) {
         </div>
       </div>
 
-      {/* Right side: search + filter + theme toggle */}
+      {/* Right side */}
       <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+
+        {/* Botão Assinaturas */}
+        <button
+          onClick={() => navigate("/assinaturas")}
+          style={{
+            background: theme.isDark ? "rgba(21,101,192,0.2)" : "rgba(21,101,192,0.1)",
+            border: `1px solid ${theme.isDark ? "rgba(100,150,255,0.3)" : "rgba(21,101,192,0.25)"}`,
+            borderRadius: 6,
+            color: theme.textAccent,
+            padding: "7px 14px",
+            fontSize: 12,
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            transition: "background 0.2s, transform 0.15s",
+            whiteSpace: "nowrap",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = theme.isDark ? "rgba(21,101,192,0.35)" : "rgba(21,101,192,0.18)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = theme.isDark ? "rgba(21,101,192,0.2)" : "rgba(21,101,192,0.1)"; e.currentTarget.style.transform = "translateY(0)"; }}
+        >
+          ✍ Assinaturas
+        </button>
 
         {/* Search */}
         <div style={{ position: "relative" }}>
