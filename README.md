@@ -2,6 +2,34 @@
 
 Plataforma para geração de assinaturas digitais a partir de dados de colaboradores via LDAP.
 
+## Iniciar o Projeto
+
+### Frontend (React + Vite)
+
+Acesse a pasta `frontend/` e execute:
+
+```bash
+npm run dev       # Inicia o servidor local para desenvolvimento (localhost:3000)
+npm run build     # Gera a versão final do projeto para publicar (pasta dist/)
+npm run lint      # Verifica o código em busca de erros e más práticas
+npm run preview   # Pré-visualiza o build gerado antes de publicar
+```
+
+### Backend (Python + FastAPI)
+
+Acesse a pasta `backend/` e execute:
+
+```powershell
+# 1. Ativar o ambiente virtual
+.\venv\Scripts\Activate.ps1
+
+# 2. Rodar o servidor FastAPI
+python app/main.py
+```
+
+A API estará disponível em `http://localhost:8000`
+Documentação interativa: `http://localhost:8000/docs`
+
 ## Estrutura do Projeto
 
 ```
@@ -31,6 +59,7 @@ aeb-colaboradores/          ← pasta raiz (seu repositório)
 ├── .gitignore
 └── README.md
 ```
+
 
 ## Backend (Python + FastAPI)
 
@@ -175,18 +204,22 @@ npm install
 
 ### Rodando Ambos Simultaneamente
 
-Terminal 1 - Backend:
-```bash
+**Terminal 1 - Backend:**
+```powershell
 cd backend
-source venv/bin/activate
-python -m app.main
+.\venv\Scripts\Activate.ps1
+python app/main.py
 ```
 
-Terminal 2 - Frontend:
+**Terminal 2 - Frontend:**
 ```bash
 cd frontend
 npm run dev
 ```
+
+Após iniciar ambos os servidores:
+- Frontend: acesse `http://localhost:3000`
+- Backend: acesse `http://localhost:8000` ou `http://localhost:8000/docs` (documentação)
 
 ## Notas Importantes
 

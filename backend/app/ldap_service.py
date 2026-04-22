@@ -1,8 +1,10 @@
 """
-LDAP Service - Conexão e autenticação
+LDAP Service - Conexão, autenticação e busca de colaboradores
+AEB - Agência Espacial Brasileira
 """
 
 import os
+import base64
 from typing import Optional
 from ldap3 import Server, Connection, ALL, SUBTREE
 from ldap3.core.exceptions import LDAPException, LDAPBindError, LDAPSocketOpenError
@@ -10,11 +12,26 @@ from ldap3.core.exceptions import LDAPException, LDAPBindError, LDAPSocketOpenEr
 
 class LDAPService:
     def __init__(self):
-        self.host = os.getenv("LDAP_HOST", "ldap.aeb.gov.br")
-        self.port = int(os.getenv("LDAP_PORT", "389"))
-        self.bind_dn = os.getenv("LDAP_BIND_DN", "CN=Eventos Dev,OU=SERVICO,OU=USUARIOS,OU=AEB,DC=aeb,DC=gov,DC=br")
+        self.host          = os.getenv("LDAP_HOST", "ldap.aeb.gov.br")
+        self.port          = int(os.getenv("LDAP_PORT", "389"))
+        self.bind_dn       = os.getenv("LDAP_BIND_DN", "CN=Eventos Dev,OU=SERVICO,OU=USUARIOS,OU=AEB,DC=aeb,DC=gov,DC=br")
         self.bind_password = os.getenv("LDAP_BIND_PASSWORD", "")
-        self.base_dn = os.getenv("LDAP_BASE_DN", "OU=USUARIOS,OU=AEB,DC=aeb,DC=gov,DC=br")
+        self.base_dn       = os.getenv("LDAP_BASE_DN", "OU=USUARIOS,OU=AEB,DC=aeb,DC=gov,DC=br")
+
+        # Atributos buscados em TODAS as consultas
+        self.atributos = [
+            "cn",
+            "sAMAccountName",
+            "displayName",
+            "title",           # Cargo
+            "department",      # Lotação / Coordenação
+            "ou",              # Unidade (sigla)
+            "telephoneNumber", # Ramal
+            "mail",            # E-mail
+            "thumbnailPhoto",  # Foto (bytes)
+            "memberOf",        # Grupos
+            "distinguishedName",
+        ]
 
     # ------------------------------------------------------------------
     # Conexão interna (usuário de serviço)
@@ -24,7 +41,12 @@ class LDAPService:
         """Cria conexão autenticada com o usuário de serviço."""
         try:
             server = Server(self.host, port=self.port, get_info=ALL)
-            conn = Connection(server, user=self.bind_dn, password=self.bind_password, auto_bind=True)
+            conn = Connection(
+                server,
+                user=self.bind_dn,
+                password=self.bind_password,
+                auto_bind=True
+            )
             return conn
         except LDAPSocketOpenError:
             raise Exception(f"Servidor LDAP inacessível: {self.host}:{self.port}")
@@ -34,13 +56,71 @@ class LDAPService:
             raise Exception(f"Erro ao conectar no LDAP: {e}")
 
     # ------------------------------------------------------------------
+    # Busca de todos os colaboradores (para a tabela principal)
+    # ------------------------------------------------------------------
+
+    def search_all_users(self, unidade: Optional[str] = None) -> list[dict]:
+        """
+        Retorna todos os usuários ativos com e-mail cadastrado.
+        Opcionalmente filtra por unidade (OU).
+        """
+        conn = self._get_service_connection()
+        try:
+            if unidade:
+                search_filter = f"(&(objectClass=person)(mail=*)(department={unidade}))"
+            else:
+                search_filter = "(&(objectClass=person)(mail=*))"
+
+            conn.search(
+                search_base=self.base_dn,
+                search_filter=search_filter,
+                search_scope=SUBTREE,
+                attributes=self.atributos,
+            )
+
+            return [self._parse_entry(entry) for entry in conn.entries]
+
+        except LDAPException as e:
+            raise Exception(f"Erro ao buscar colaboradores: {e}")
+        finally:
+            conn.unbind()
+
+    # ------------------------------------------------------------------
+    # Busca de usuário individual
+    # ------------------------------------------------------------------
+
+    def search_user(self, user_id: str) -> Optional[dict]:
+        """
+        Busca um usuário pelo sAMAccountName (login de rede).
+        Retorna dict com os atributos ou None se não encontrado.
+        """
+        conn = self._get_service_connection()
+        try:
+            conn.search(
+                search_base=self.base_dn,
+                search_filter=f"(sAMAccountName={user_id})",
+                search_scope=SUBTREE,
+                attributes=self.atributos,
+            )
+
+            if not conn.entries:
+                return None
+
+            return self._parse_entry(conn.entries[0])
+
+        except LDAPException as e:
+            raise Exception(f"Erro ao buscar usuário '{user_id}': {e}")
+        finally:
+            conn.unbind()
+
+    # ------------------------------------------------------------------
     # Autenticação de usuário
     # ------------------------------------------------------------------
 
     def authenticate(self, user: str, password: str) -> bool:
         """
         Autentica usuário no LDAP.
-        Busca o DN completo pelo sAMAccountName e tenta bind com a senha informada.
+        Busca o DN completo pelo sAMAccountName e tenta bind com a senha.
         """
         user_info = self.search_user(user)
         if not user_info:
@@ -61,45 +141,11 @@ class LDAPService:
             return False
 
     # ------------------------------------------------------------------
-    # Busca de usuário
-    # ------------------------------------------------------------------
-
-    def search_user(self, user_id: str) -> Optional[dict]:
-        """
-        Busca informações do usuário pelo sAMAccountName (login de rede).
-        Retorna dict com os atributos ou None se não encontrado.
-        """
-        conn = self._get_service_connection()
-        try:
-            search_filter = f"(sAMAccountName={user_id})"
-            attributes = [
-                "cn", "sAMAccountName", "mail", "displayName",
-                "title", "department", "memberOf", "distinguishedName"
-            ]
-            conn.search(
-                search_base=self.base_dn,
-                search_filter=search_filter,
-                search_scope=SUBTREE,
-                attributes=attributes
-            )
-
-            if not conn.entries:
-                return None
-
-            entry = conn.entries[0]
-            return self._parse_entry(entry)
-
-        except LDAPException as e:
-            raise Exception(f"Erro ao buscar usuário '{user_id}': {e}")
-        finally:
-            conn.unbind()
-
-    # ------------------------------------------------------------------
     # Grupos do usuário
     # ------------------------------------------------------------------
 
     def get_user_groups(self, user_id: str) -> list[str]:
-        """Obtém a lista de grupos (CNs) do usuário."""
+        """Retorna lista de grupos (CNs) do usuário."""
         user_info = self.search_user(user_id)
         if not user_info:
             return []
@@ -117,13 +163,51 @@ class LDAPService:
         return groups
 
     # ------------------------------------------------------------------
-    # Helper
+    # Helper: converte entrada LDAP em dict serializável
     # ------------------------------------------------------------------
 
     def _parse_entry(self, entry) -> dict:
-        """Converte entrada ldap3 para dict simples."""
+        """
+        Converte entrada ldap3 para dict simples e seguro para JSON.
+        Trata foto (bytes → base64) e valores multivalorados.
+        """
         parsed = {"dn": entry.entry_dn}
+
         for attr in entry.entry_attributes:
-            value = entry[attr].value
-            parsed[attr] = value
+            try:
+                value = entry[attr].value
+
+                # Foto: bytes → string base64
+                if attr == "thumbnailPhoto":
+                    if value and isinstance(value, bytes):
+                        parsed["foto"] = "data:image/jpeg;base64," + base64.b64encode(value).decode("utf-8")
+                    else:
+                        parsed["foto"] = None
+                    continue
+
+                # Listas → junta com vírgula ou pega primeiro
+                if isinstance(value, list):
+                    parsed[attr] = ", ".join(str(v) for v in value) if value else ""
+                else:
+                    parsed[attr] = str(value) if value is not None else ""
+
+            except Exception:
+                parsed[attr] = ""
+
+        # Garante que todos os campos esperados pelo frontend existam
+        campos_esperados = {
+            "displayName": "",
+            "title":       "",
+            "department":  "",
+            "ou":          "",
+            "telephoneNumber": "",
+            "mail":        "",
+            "foto":        None,
+            "sAMAccountName": "",
+            "distinguishedName": parsed.get("dn", ""),
+        }
+        for campo, default in campos_esperados.items():
+            if campo not in parsed:
+                parsed[campo] = default
+
         return parsed
