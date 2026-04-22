@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 import { MOCK_COLABORADORES } from "../data/mockData";
 
 // Capas disponíveis na pasta public/capas-assinaturas
@@ -17,6 +18,7 @@ const ASSINATURA_H = 180;
 export default function Assinaturas() {
   const navigate = useNavigate();
   const theme = useTheme();
+  const { user } = useAuth();
   const canvasRef = useRef(null);
 
   const [colaboradorId, setColaboradorId] = useState("");
@@ -370,7 +372,7 @@ export default function Assinaturas() {
             </div>
           )}
 
-          {/* Ramal e email editáveis */}
+          {/* Ramal editável | E-mail bloqueado */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
             <div>
               <label style={labelStyle}>Ramal</label>
@@ -383,13 +385,22 @@ export default function Assinaturas() {
               />
             </div>
             <div>
-              <label style={labelStyle}>E-mail</label>
+              <label style={labelStyle}>
+                E-mail
+                <span style={{ marginLeft: 6, fontSize: 10, color: theme.isDark ? "rgba(255,200,100,0.6)" : "rgba(180,100,0,0.7)", fontStyle: "normal" }}>
+                  🔒 não editável
+                </span>
+              </label>
               <input
                 type="text"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="Ex: nome@aeb.gov.br"
-                style={inputStyle}
+                readOnly
+                style={{
+                  ...inputStyle,
+                  opacity: 0.55,
+                  cursor: "not-allowed",
+                  background: theme.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)",
+                }}
               />
             </div>
           </div>

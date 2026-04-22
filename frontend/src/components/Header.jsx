@@ -73,7 +73,7 @@ export default function Header({ search, onSearch, unidade, onUnidade }) {
 
         {/* Botão Assinaturas */}
         <button
-          onClick={() => navigate("/assinaturas")}
+          onClick={() => navigate("/login")}
           style={{
             background: theme.isDark ? "rgba(21,101,192,0.2)" : "rgba(21,101,192,0.1)",
             border: `1px solid ${theme.isDark ? "rgba(100,150,255,0.3)" : "rgba(21,101,192,0.25)"}`,

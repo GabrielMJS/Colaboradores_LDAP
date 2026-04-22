@@ -1,14 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 import Home from "./pages/Home";
-import Assinaturas from "./pages/Assinaturas";
 import Login from "./pages/Login";
-
-function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
-}
+import Assinaturas from "./pages/Assinaturas";
+import Admin from "./pages/Admin";
 
 export default function App() {
   return (
@@ -18,14 +16,16 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
-            <Route
-              path="/assinaturas"
-              element={
-                <ProtectedRoute>
-                  <Assinaturas />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/assinaturas" element={
+              <ProtectedRoute>
+                <Assinaturas />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedAdminRoute>
+                <Admin />
+              </ProtectedAdminRoute>
+            } />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

@@ -61,15 +61,19 @@ class LDAPService:
 
     def search_all_users(self, unidade: Optional[str] = None) -> list[dict]:
         """
-        Retorna todos os usuários ativos com e-mail cadastrado.
+        Retorna apenas usuários ATIVOS com e-mail cadastrado.
+        Contas desativadas no AD (bit 2 do userAccountControl) são excluídas.
         Opcionalmente filtra por unidade (OU).
         """
         conn = self._get_service_connection()
         try:
+            # Exclui contas desativadas verificando o bit 2 do userAccountControl
+            filtro_ativo = "(!(userAccountControl:1.2.840.113556.1.4.803:=2))"
+
             if unidade:
-                search_filter = f"(&(objectClass=person)(mail=*)(department={unidade}))"
+                search_filter = f"(&(objectClass=user)(mail=*){filtro_ativo}(department={unidade}))"
             else:
-                search_filter = "(&(objectClass=person)(mail=*))"
+                search_filter = f"(&(objectClass=user)(mail=*){filtro_ativo})"
 
             conn.search(
                 search_base=self.base_dn,

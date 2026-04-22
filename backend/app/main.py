@@ -3,6 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from ldap_service import LDAPService
+from overrides_service import (
+    get_all_overrides,
+    save_override,
+    delete_override,
+    apply_overrides,
+)
 from typing import Optional
 
 load_dotenv()
@@ -17,28 +23,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 class LoginRequest(BaseModel):
     username: str
     password: str
 
-
-# ------------------------------------------------------------------
-# Health check
-# ------------------------------------------------------------------
+class OverrideRequest(BaseModel):
+    ramal:   Optional[str]  = None
+    cargo:   Optional[str]  = None
+    unidade: Optional[str]  = None
+    visivel: Optional[bool] = None
 
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
 
-
-# ------------------------------------------------------------------
-# Teste de conexão LDAP
-# ------------------------------------------------------------------
-
 @app.get("/ldap/test")
 def ldap_test():
-    """Testa a conexão com o servidor LDAP usando o usuário de serviço."""
     try:
         service = LDAPService()
         conn = service._get_service_connection()
@@ -47,32 +47,55 @@ def ldap_test():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-
-# ------------------------------------------------------------------
-# Colaboradores (alimenta a tabela principal do frontend)
-# ------------------------------------------------------------------
-
 @app.get("/api/colaboradores")
 def get_colaboradores(unidade: Optional[str] = Query(default=None)):
-    """
-    Retorna todos os colaboradores ativos.
-    Parâmetro opcional: ?unidade=CDT
-    """
+    """Página inicial — aplica overrides e filtra ocultos."""
     try:
         service = LDAPService()
         colaboradores = service.search_all_users(unidade=unidade)
+        colaboradores = apply_overrides(colaboradores)
         return {"status": "ok", "total": len(colaboradores), "data": colaboradores}
     except Exception as e:
         return {"status": "error", "message": str(e), "data": []}
 
+@app.get("/api/admin/colaboradores")
+def get_colaboradores_admin(unidade: Optional[str] = Query(default=None)):
+    """Admin — retorna TODOS (incluindo ocultos) com overrides aplicados."""
+    try:
+        service = LDAPService()
+        colaboradores = service.search_all_users(unidade=unidade)
+        overrides = get_all_overrides()
+        for c in colaboradores:
+            username = c.get("sAMAccountName", "")
+            ov = overrides.get(username, {})
+            if "ramal"   in ov: c["telephoneNumber"] = ov["ramal"]
+            if "cargo"   in ov: c["title"]           = ov["cargo"]
+            if "unidade" in ov: c["ou"]              = ov["unidade"]
+            c["_overrides"] = ov
+            c["visivel"] = ov.get("visivel", True)
+        return {"status": "ok", "total": len(colaboradores), "data": colaboradores}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "data": []}
 
-# ------------------------------------------------------------------
-# Busca usuário individual
-# ------------------------------------------------------------------
+@app.put("/api/admin/colaboradores/{username}/override")
+def set_override(username: str, body: OverrideRequest):
+    try:
+        fields = {k: v for k, v in body.dict().items() if v is not None}
+        save_override(username, fields)
+        return {"status": "ok", "message": f"Customizações de '{username}' salvas."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.delete("/api/admin/colaboradores/{username}/override")
+def remove_override(username: str):
+    try:
+        delete_override(username)
+        return {"status": "ok", "message": f"Customizações de '{username}' removidas."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.get("/ldap/user/{user_id}")
 def ldap_search_user(user_id: str):
-    """Busca informações de um usuário pelo sAMAccountName."""
     try:
         service = LDAPService()
         user = service.search_user(user_id)
@@ -82,25 +105,16 @@ def ldap_search_user(user_id: str):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-
-# ------------------------------------------------------------------
-# Autenticação
-# ------------------------------------------------------------------
-
 @app.post("/auth/login")
 def auth_login(body: LoginRequest):
-    """Autentica usuário via LDAP e retorna seus dados."""
     try:
         service = LDAPService()
-
         user_info = service.search_user(body.username)
         if not user_info:
             return {"status": "error", "message": "Usuário não encontrado no diretório."}
-
         authenticated = service.authenticate(body.username, body.password)
         if not authenticated:
             return {"status": "error", "message": "Usuário ou senha inválidos."}
-
         return {
             "status": "ok",
             "user": {
@@ -113,7 +127,6 @@ def auth_login(body: LoginRequest):
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
 
 if __name__ == "__main__":
     import uvicorn
