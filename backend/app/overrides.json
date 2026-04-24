@@ -154,5 +154,8 @@
   },
   "eventos.aeb": {
     "visivel": false
+  },
+  "thaynar.santos": {
+    "visivel": true
   }
 }

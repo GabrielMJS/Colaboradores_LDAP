@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
-import { UNIDADES } from "../data/mockData";
 
-export default function Header({ search, onSearch, unidade, onUnidade }) {
+export default function Header({ search, onSearch, unidade, onUnidade, availableUnidades = [] }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const theme = useTheme();
   const navigate = useNavigate();
@@ -180,7 +179,7 @@ export default function Header({ search, onSearch, unidade, onUnidade }) {
               animation: "slideDown 0.15s ease",
               boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
             }}>
-              {UNIDADES.map(u => (
+              {availableUnidades.map(u => (
                 <div
                   key={u}
                   onClick={() => { onUnidade(u); setDropdownOpen(false); }}

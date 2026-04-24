@@ -22,14 +22,33 @@ export default function Home() {
       .finally(() => setCarregando(false));
   }, []);
 
+  const availableUnidades = useMemo(() => {
+    // Puxa as unidades dinâmicas da lotação (department) ou OU
+    const lotacoes = colaboradores
+      .map(c => c.department || c.ou || "")
+      .map(d => d.trim())
+      .filter(d => d !== "");
+    // Remove duplicatas e ordena alfabeticamente
+    const unique = [...new Set(lotacoes)].sort();
+    return ["Selecionar Unidade", ...unique];
+  }, [colaboradores]);
+
   const filtered = useMemo(() => {
+    const removeAcentos = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
     return colaboradores.filter(c => {
       const nome = c.displayName || c.cn || "";
-      const matchSearch = nome.toLowerCase().includes(search.toLowerCase());
+      
+      const nomeNormalizado = removeAcentos(nome.toLowerCase());
+      const searchNormalizado = removeAcentos(search.toLowerCase());
+      
+      const matchSearch = nomeNormalizado.includes(searchNormalizado);
+      
       const matchUnidade =
         unidade === "Selecionar Unidade" ||
         (c.department || "").includes(unidade) ||
         (c.ou || "").includes(unidade);
+        
       return matchSearch && matchUnidade;
     });
   }, [colaboradores, search, unidade]);
@@ -74,6 +93,7 @@ export default function Home() {
           onSearch={setSearch}
           unidade={unidade}
           onUnidade={setUnidade}
+          availableUnidades={availableUnidades}
         />
 
         <main style={{ padding: "24px" }}>

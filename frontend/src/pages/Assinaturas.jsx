@@ -4,16 +4,15 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { MOCK_COLABORADORES } from "../data/mockData";
 
-// Capas disponíveis na pasta public/capas-assinaturas
+// Capas disponíveis na pasta public/assinaturas
 // Adicione os nomes dos arquivos aqui conforme for colocando na pasta
 const CAPAS = [
-  { id: 1, nome: "Padrão Espacial", arquivo: "/capas-assinaturas/capa1.png" },
-  { id: 2, nome: "Satélite", arquivo: "/capas-assinaturas/capa2.png" },
-  { id: 3, nome: "Lançador", arquivo: "/capas-assinaturas/capa3.png" },
+  { id: 1, nome: "Padrão Espacial", arquivo: "/assinaturas/capa1.png" },
+  { id: 2, nome: "Satélite", arquivo: "/assinaturas/capa2.png" },
+  { id: 3, nome: "Lançador", arquivo: "/assinaturas/capa3.png" },
 ];
 
-const ASSINATURA_W = 700;
-const ASSINATURA_H = 180;
+// Removidas as larguras hardcoded para podermos usar o tamanho real da imagem
 
 export default function Assinaturas() {
   const navigate = useNavigate();
@@ -21,24 +20,27 @@ export default function Assinaturas() {
   const { user } = useAuth();
   const canvasRef = useRef(null);
 
-  const [colaboradorId, setColaboradorId] = useState("");
   const [capaId, setCapaId] = useState("");
   const [ramal, setRamal] = useState("");
   const [email, setEmail] = useState("");
   const [preview, setPreview] = useState(null);
+  const [capaDropdownOpen, setCapaDropdownOpen] = useState(false);
 
-  const colaborador = MOCK_COLABORADORES.find(c => c.id === Number(colaboradorId));
+  // Deriva o colaborador logado
+  const colaborador = user ? {
+    nome: user.displayName || user.username || "Usuário não identificado",
+    cargo: user.title || "Cargo não informado",
+    lotacao: user.department || "Lotação não informada",
+    email: user.email || "",
+  } : null;
 
-  // Preenche ramal e email automaticamente ao selecionar colaborador
+  // Ao montar, preenche o e-mail (e ramal, se existir)
   useEffect(() => {
     if (colaborador) {
-      setRamal(colaborador.ramal || "");
-      setEmail(colaborador.email || "");
-    } else {
-      setRamal("");
-      setEmail("");
+      setEmail(colaborador.email);
+      // Se houver ramal salvo no LDAP futuro, pode preencher: setRamal(user.ramal || "");
     }
-  }, [colaboradorId]);
+  }, [user]);
 
   const capa = CAPAS.find(c => c.id === Number(capaId));
 
@@ -47,46 +49,62 @@ export default function Assinaturas() {
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    canvas.width = ASSINATURA_W;
-    canvas.height = ASSINATURA_H;
 
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = capa.arquivo;
 
     img.onload = () => {
-      // Desenha a capa como fundo
-      ctx.drawImage(img, 0, 0, ASSINATURA_W, ASSINATURA_H);
+      // Define o tamanho do canvas para o tamanho REAL da imagem (ex: 3663x818)
+      canvas.width = img.width;
+      canvas.height = img.height;
 
-      // Área de texto (lado direito, similar ao modelo)
-      const textX = 220;
-      const startY = 45;
-      const lineH = 22;
+      // Desenha a capa como fundo
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // Usando proporções para ficar perfeito em qualquer resolução
+      const textX = canvas.width * 0.305; // Ajuste horizontal (após a logo)
+      let currentY = canvas.height * 0.30; // Ajuste vertical inicial
+      const lineSpacing = canvas.height * 0.11; // Espaço entre linhas
+
+      // Tamanhos de fonte proporcionais
+      const fontNome = Math.round(canvas.height * 0.085);
+      const fontMedia = Math.round(canvas.height * 0.055);
+      const fontAeb = Math.round(canvas.height * 0.075);
 
       // Nome
-      ctx.font = "bold 18px Arial";
+      ctx.font = `bold ${fontNome}px 'Times New Roman', Times, serif`;
       ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(colaborador.nome, textX, startY);
+      ctx.fillText(colaborador.nome, textX, currentY);
+      currentY += lineSpacing;
 
-      // Área (cargo/função)
-      ctx.font = "13px Arial";
-      ctx.fillStyle = "#CCDDEE";
-      ctx.fillText(colaborador.cargo, textX, startY + lineH);
-
-      // Lotação (Coordenação)
-      ctx.font = "13px Arial";
-      ctx.fillStyle = "#CCDDEE";
-      ctx.fillText(colaborador.lotacao, textX, startY + lineH * 2);
-
-      // Diretoria (unidade)
-      ctx.font = "bold 14px Arial";
+      // Cargo (Suporte CTI)
+      ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
       ctx.fillStyle = "#FFFFFF";
-      ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 3);
+      ctx.fillText(colaborador.cargo, textX, currentY);
+      currentY += lineSpacing - (canvas.height * 0.01);
+
+      // Lotação (Coordenação de Tecnologia da Informação)
+      ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText(colaborador.lotacao, textX, currentY);
+      currentY += lineSpacing + (canvas.height * 0.02); // Espaço extra
+
+      // Agência Espacial Brasileira
+      ctx.font = `bold ${fontAeb}px 'Times New Roman', Times, serif`;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText("Agência Espacial Brasileira", textX, currentY);
+      currentY += lineSpacing;
+
+      // Tratamento do ramal: garantindo que começará com (61) 2033 -
+      const apenasDigitos = ramal.replace(/\D/g, '');
+      const digitosFinais = apenasDigitos.slice(-4);
+      const ramalFormatado = `(61) 2033-${digitosFinais || "XXXX"}`;
 
       // Ramal e email
-      ctx.font = "13px Arial";
-      ctx.fillStyle = "#CCDDEE";
-      ctx.fillText(`(61) ${ramal}    ${email}`, textX, startY + lineH * 4);
+      ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText(`${ramalFormatado}    ${email}`, textX, currentY);
 
       // Gera preview
       setPreview(canvas.toDataURL("image/png"));
@@ -94,13 +112,15 @@ export default function Assinaturas() {
 
     img.onerror = () => {
       // Capa não encontrada: gera com fundo padrão
+      canvas.width = 700;
+      canvas.height = 180;
       ctx.fillStyle = "#0d1f3c";
-      ctx.fillRect(0, 0, ASSINATURA_W, ASSINATURA_H);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Borda arredondada visual
       ctx.strokeStyle = "rgba(100,150,255,0.3)";
       ctx.lineWidth = 1;
-      ctx.strokeRect(1, 1, ASSINATURA_W - 2, ASSINATURA_H - 2);
+      ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
 
       // Logo placeholder
       ctx.fillStyle = "#1565c0";
@@ -305,34 +325,119 @@ export default function Assinaturas() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
 
-            {/* Colaborador */}
+            {/* Colaborador Fixo */}
             <div>
-              <label style={labelStyle}>Colaborador</label>
-              <select
-                value={colaboradorId}
-                onChange={e => setColaboradorId(e.target.value)}
-                style={{ ...inputStyle, cursor: "pointer" }}
-              >
-                <option value="">Selecionar colaborador...</option>
-                {MOCK_COLABORADORES.map(c => (
-                  <option key={c.id} value={c.id}>{c.nome}</option>
-                ))}
-              </select>
+              <label style={labelStyle}>
+                Colaborador
+                <span style={{ marginLeft: 6, fontSize: 10, color: theme.isDark ? "rgba(255,200,100,0.6)" : "rgba(180,100,0,0.7)", fontStyle: "normal" }}>
+                  🔒 logado
+                </span>
+              </label>
+              <input
+                type="text"
+                value={colaborador ? colaborador.nome : "Carregando..."}
+                readOnly
+                style={{
+                  ...inputStyle,
+                  opacity: 0.7,
+                  cursor: "not-allowed",
+                  background: theme.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)",
+                }}
+              />
             </div>
 
             {/* Capa */}
             <div>
               <label style={labelStyle}>Capa da assinatura</label>
-              <select
-                value={capaId}
-                onChange={e => setCapaId(e.target.value)}
-                style={{ ...inputStyle, cursor: "pointer" }}
-              >
-                <option value="">Selecionar capa...</option>
-                {CAPAS.map(c => (
-                  <option key={c.id} value={c.id}>{c.nome}</option>
-                ))}
-              </select>
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={() => {
+                    setCapaDropdownOpen(o => !o);
+                  }}
+                  style={{
+                    background: theme.inputBg,
+                    border: `1px solid ${theme.inputBorder}`,
+                    borderRadius: 6,
+                    color: !capaId ? theme.inputPlaceholder : theme.inputColor,
+                    padding: "9px 32px 9px 14px",
+                    fontSize: 13,
+                    width: "100%",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    fontFamily: "'Barlow', sans-serif",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    position: "relative",
+                  }}
+                >
+                  {capa ? capa.nome : "Selecionar capa..."}
+                  <span style={{
+                    position: "absolute",
+                    right: 14,
+                    top: "50%",
+                    transform: `translateY(-50%) rotate(${capaDropdownOpen ? 180 : 0}deg)`,
+                    transition: "transform 0.2s",
+                    color: theme.inputPlaceholder,
+                    fontSize: 10,
+                  }}>▼</span>
+                </button>
+
+                {capaDropdownOpen && (
+                  <div style={{
+                    position: "absolute",
+                    top: "calc(100% + 4px)",
+                    left: 0,
+                    width: "100%",
+                    background: theme.dropdownBg,
+                    border: `1px solid ${theme.dropdownBorder}`,
+                    borderRadius: 8,
+                    backdropFilter: "blur(16px)",
+                    maxHeight: 250,
+                    overflowY: "auto",
+                    zIndex: 200,
+                    animation: "slideDown 0.15s ease",
+                    boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
+                  }}>
+                    <div
+                      onClick={() => { setCapaId(""); setCapaDropdownOpen(false); }}
+                      style={{
+                        padding: "9px 16px",
+                        fontSize: 13,
+                        color: !capaId ? theme.textAccent : theme.textSecondary,
+                        cursor: "pointer",
+                        fontFamily: "'Barlow', sans-serif",
+                        background: !capaId ? theme.dropdownSelected : "transparent",
+                        transition: "background 0.15s",
+                        fontStyle: "italic",
+                      }}
+                      onMouseEnter={e => { if (capaId) e.currentTarget.style.background = theme.dropdownHover; }}
+                      onMouseLeave={e => { if (capaId) e.currentTarget.style.background = "transparent"; }}
+                    >
+                      Selecionar capa...
+                    </div>
+                    {CAPAS.map(c => (
+                      <div
+                        key={c.id}
+                        onClick={() => { setCapaId(c.id); setCapaDropdownOpen(false); }}
+                        style={{
+                          padding: "9px 16px",
+                          fontSize: 13,
+                          color: c.id === Number(capaId) ? theme.textAccent : theme.textSecondary,
+                          cursor: "pointer",
+                          fontFamily: "'Barlow', sans-serif",
+                          background: c.id === Number(capaId) ? theme.dropdownSelected : "transparent",
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={e => { if (c.id !== Number(capaId)) e.currentTarget.style.background = theme.dropdownHover; }}
+                        onMouseLeave={e => { if (c.id !== Number(capaId)) e.currentTarget.style.background = "transparent"; }}
+                      >
+                        {c.nome}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>

@@ -29,6 +29,7 @@ class LDAPService:
             "telephoneNumber", # Ramal
             "mail",            # E-mail
             "thumbnailPhoto",  # Foto (bytes)
+            "jpegPhoto",       # Foto alternativa (bytes)
             "memberOf",        # Grupos
             "distinguishedName",
         ]
@@ -182,11 +183,14 @@ class LDAPService:
                 value = entry[attr].value
 
                 # Foto: bytes → string base64
-                if attr == "thumbnailPhoto":
+                if attr in ("thumbnailPhoto", "jpegPhoto"):
                     if value and isinstance(value, bytes):
-                        parsed["foto"] = "data:image/jpeg;base64," + base64.b64encode(value).decode("utf-8")
+                        # Se não tiver foto ainda, pega essa
+                        if not parsed.get("foto"):
+                            parsed["foto"] = "data:image/jpeg;base64," + base64.b64encode(value).decode("utf-8")
                     else:
-                        parsed["foto"] = None
+                        if "foto" not in parsed:
+                            parsed["foto"] = None
                     continue
 
                 # Listas → junta com vírgula ou pega primeiro
