@@ -108,6 +108,31 @@ export default function Login() {
         </>
       )}
 
+      {/* Botão de voltar */}
+      <button
+        onClick={() => navigate("/")}
+        style={{
+          position: "fixed", top: 20, left: 20,
+          background: "transparent",
+          border: `1px solid ${isDark ? "rgba(100,150,255,0.2)" : "rgba(0,80,200,0.2)"}`,
+          borderRadius: 6,
+          color: isDark ? "rgba(180,200,235,0.8)" : "rgba(0,60,160,0.8)",
+          padding: "6px 12px",
+          fontSize: 12,
+          cursor: "pointer",
+          fontFamily: "'Inter', sans-serif",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          transition: "background 0.2s",
+          zIndex: 10,
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,60,160,0.08)"}
+        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+      >
+        ← Voltar
+      </button>
+
       {/* Theme toggle */}
       <button
         onClick={toggleTheme}
@@ -146,7 +171,9 @@ export default function Login() {
 
           {/* Logo */}
           <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{
+            <div 
+              onClick={() => navigate("/")}
+              style={{
               width: 64, height: 64,
               background: isDark
                 ? "linear-gradient(135deg, #1a3a7a, #0d2050)"
@@ -156,6 +183,7 @@ export default function Login() {
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 28, margin: "0 auto 16px",
               boxShadow: isDark ? "0 8px 24px rgba(0,30,100,0.5)" : "0 8px 24px rgba(21,101,192,0.2)",
+              cursor: "pointer",
             }}>
               🛰
             </div>

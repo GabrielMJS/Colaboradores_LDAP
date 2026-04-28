@@ -4,6 +4,7 @@ import { useTheme } from "../context/ThemeContext";
 
 export default function ColaboradorRow({ colaborador }) {
   const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
   const theme = useTheme();
   const cargoColor = theme.isDark ? "#90caf9" : "#1565c0";
 
@@ -116,7 +117,17 @@ export default function ColaboradorRow({ colaborador }) {
               key={btn.label}
               onClick={(e) => {
                 e.stopPropagation();
-                if (btn.label === "Copiar e-mail") navigator.clipboard.writeText(colaborador.email);
+                if (btn.label === "Copiar e-mail") {
+                  navigator.clipboard.writeText(colaborador.email);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                } else if (btn.label === "Mensagem no Teams") {
+                  window.open(`https://teams.microsoft.com/l/chat/0/0?users=${colaborador.email}`, "_blank");
+                } else if (btn.label === "E-mail no Outlook") {
+                  window.open(`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(colaborador.email)}`, "_blank");
+                } else if (btn.label === "Chamada de vídeo") {
+                  window.open(`https://teams.microsoft.com/l/call/0/0?users=${colaborador.email}`, "_blank");
+                }
               }}
               style={{
                 background: btn.color,
@@ -135,7 +146,7 @@ export default function ColaboradorRow({ colaborador }) {
               onMouseEnter={e => { e.currentTarget.style.opacity = "0.85"; e.currentTarget.style.transform = "translateY(-1px)"; }}
               onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}
             >
-              <span>{btn.icon}</span> {btn.label}
+              <span>{btn.icon}</span> {btn.label === "Copiar e-mail" && copied ? "Copiado!" : btn.label}
             </button>
           ))}
         </div>

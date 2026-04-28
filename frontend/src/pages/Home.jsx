@@ -11,7 +11,12 @@ export default function Home() {
   const [erro, setErro] = useState("");
   const [search, setSearch] = useState("");
   const [unidade, setUnidade] = useState("Selecionar Unidade");
+  const [currentPage, setCurrentPage] = useState(1);
   const theme = useTheme();
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, unidade]);
 
   useEffect(() => {
     setCarregando(true);
@@ -36,7 +41,7 @@ export default function Home() {
   const filtered = useMemo(() => {
     const removeAcentos = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     
-    return colaboradores.filter(c => {
+    let result = colaboradores.filter(c => {
       const nome = c.displayName || c.cn || "";
       
       const nomeNormalizado = removeAcentos(nome.toLowerCase());
@@ -51,7 +56,20 @@ export default function Home() {
         
       return matchSearch && matchUnidade;
     });
+    
+    result.sort((a, b) => {
+      const nameA = a.displayName || a.cn || "";
+      const nameB = b.displayName || b.cn || "";
+      return nameA.localeCompare(nameB);
+    });
+
+    return result;
   }, [colaboradores, search, unidade]);
+
+  const itemsPerPage = 20;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginated = filtered.slice(startIndex, startIndex + itemsPerPage);
 
   function normalizarColaborador(c, index) {
     return {
@@ -162,17 +180,45 @@ export default function Home() {
               </div>
             )}
 
-            {!carregando && !erro && filtered.map((c, i) => (
-              <ColaboradorRow key={c.sAMAccountName || i} colaborador={normalizarColaborador(c, i)} />
+            {!carregando && !erro && paginated.map((c, i) => (
+              <ColaboradorRow key={c.sAMAccountName || i} colaborador={normalizarColaborador(c, startIndex + i)} />
             ))}
           </div>
 
-          {!carregando && !erro && (
-            <div style={{
-              marginTop: 12, textAlign: "right", fontSize: 12,
-              color: theme.textMuted, fontFamily: "'Inter', sans-serif",
-            }}>
-              {filtered.length} de {colaboradores.length} colaborador{colaboradores.length !== 1 ? "es" : ""}
+          {!carregando && !erro && filtered.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginTop: 20 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                    background: theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
+                    border: `1px solid ${theme.inputBorder}`,
+                    borderRadius: 6, color: theme.textPrimary, padding: "6px 12px",
+                    cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                    opacity: currentPage === 1 ? 0.5 : 1, fontFamily: "'Inter', sans-serif", fontSize: 13
+                  }}>
+                  Anterior
+                </button>
+                <div style={{ display: "flex", alignItems: "center", padding: "0 8px", fontSize: 13, color: theme.textPrimary, fontFamily: "'Inter', sans-serif" }}>
+                  Página {currentPage} de {totalPages}
+                </div>
+                <button 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    background: theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
+                    border: `1px solid ${theme.inputBorder}`,
+                    borderRadius: 6, color: theme.textPrimary, padding: "6px 12px",
+                    cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                    opacity: currentPage === totalPages ? 0.5 : 1, fontFamily: "'Inter', sans-serif", fontSize: 13
+                  }}>
+                  Próxima
+                </button>
+              </div>
+              <div style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'Inter', sans-serif" }}>
+                Mostrando {startIndex + 1} a {Math.min(startIndex + itemsPerPage, filtered.length)} de {filtered.length} colaboradores
+              </div>
             </div>
           )}
         </main>

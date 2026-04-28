@@ -8,11 +8,18 @@ import { fetchColaboradoresAdmin, saveOverride, deleteOverride } from "../servic
 // -------------------------------------------------------------------
 // Capas — em produção virá do backend
 // -------------------------------------------------------------------
-const CAPAS_INICIAIS = [
-  { id: 1, nome: "Padrão Espacial", arquivo: "/capas-assinaturas/capa1.png", ativa: true },
-  { id: 2, nome: "Satélite",        arquivo: "/capas-assinaturas/capa2.png", ativa: true },
-  { id: 3, nome: "Lançador",        arquivo: "/capas-assinaturas/capa3.png", ativa: true },
-];
+// Obtém dinamicamente todos os arquivos da pasta public/assinatura
+const rawCapas = import.meta.glob('/public/assinatura/*.(png|jpg|jpeg|svg)', { eager: true, query: '?url', import: 'default' });
+
+const CAPAS_REAIS = Object.keys(rawCapas).map((path, index) => {
+  const fileName = path.split('/').pop();
+  return {
+    id: index + 1,
+    nome: fileName, // Usa o próprio nome do arquivo
+    arquivo: rawCapas[path],
+    ativa: true
+  };
+});
 
 // -------------------------------------------------------------------
 // Helpers
@@ -383,47 +390,18 @@ function AbaUsuarios() {
 // -------------------------------------------------------------------
 function AbaCapas() {
   const theme = useTheme();
-  const [capas, setCapas] = useState(CAPAS_INICIAIS);
-  const [novoNome, setNovoNome] = useState("");
-  const [novoArquivo, setNovoArquivo] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(null);
-
-  function adicionar() {
-    if (!novoNome.trim() || !novoArquivo.trim()) return;
-    setCapas(prev => [...prev, {
-      id: Date.now(), nome: novoNome.trim(),
-      arquivo: novoArquivo.trim().startsWith("/") ? novoArquivo.trim() : `/capas-assinaturas/${novoArquivo.trim()}`,
-      ativa: true,
-    }]);
-    setNovoNome(""); setNovoArquivo("");
-  }
+  // As capas são inicializadas com o que existe na pasta física.
+  const [capas, setCapas] = useState(CAPAS_REAIS);
 
   return (
     <div>
       <SectionTitle>🖼 Gerenciar Capas</SectionTitle>
 
       <div style={{ background: theme.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,60,160,0.03)", border: theme.rowBorder, borderRadius: 10, padding: 20, marginBottom: 24 }}>
-        <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Inter', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 14 }}>
-          Adicionar nova capa
+        <p style={{ fontSize: 13, color: theme.textSecondary, fontFamily: "'Inter', sans-serif" }}>
+          As capas listadas abaixo são lidas dinamicamente da pasta <strong>public/assinatura/</strong> no código-fonte. 
+          <br/>Para adicionar ou remover fisicamente uma imagem, faça a alteração diretamente na pasta do projeto.
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12, alignItems: "end" }}>
-          <div>
-            <label style={labelStyle(theme)}>Nome da capa</label>
-            <input type="text" value={novoNome} onChange={e => setNovoNome(e.target.value)} placeholder="Ex: Tema Aniversário AEB" style={inputStyle(theme)} />
-          </div>
-          <div>
-            <label style={labelStyle(theme)}>Arquivo (em public/capas-assinaturas/)</label>
-            <input type="text" value={novoArquivo} onChange={e => setNovoArquivo(e.target.value)} placeholder="Ex: capa4.png" style={inputStyle(theme)} />
-          </div>
-          <button onClick={adicionar} disabled={!novoNome.trim() || !novoArquivo.trim()} style={{
-            background: novoNome && novoArquivo ? "linear-gradient(135deg,#1565c0,#0d47a1)" : theme.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
-            border: "none", borderRadius: 6, color: novoNome && novoArquivo ? "#fff" : theme.textMuted,
-            padding: "8px 20px", fontSize: 13, fontFamily: "'Inter', sans-serif",
-            fontWeight: 600, cursor: novoNome && novoArquivo ? "pointer" : "not-allowed", whiteSpace: "nowrap",
-          }}>
-            + Adicionar
-          </button>
-        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -445,17 +423,12 @@ function AbaCapas() {
               <button onClick={() => setCapas(p => p.map(c => c.id === capa.id ? { ...c, ativa: !c.ativa } : c))} style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, color: theme.textSecondary, padding: "5px 12px", fontSize: 12, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}>
                 {capa.ativa ? "Desativar" : "Ativar"}
               </button>
-              {confirmDelete === capa.id ? (
-                <>
-                  <button onClick={() => { setCapas(p => p.filter(c => c.id !== capa.id)); setConfirmDelete(null); }} style={{ background: "rgba(198,40,40,0.15)", border: "1px solid rgba(198,40,40,0.4)", borderRadius: 6, color: "#ef9a9a", padding: "5px 12px", fontSize: 12, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}>Confirmar</button>
-                  <button onClick={() => setConfirmDelete(null)} style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, color: theme.textMuted, padding: "5px 12px", fontSize: 12, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}>Cancelar</button>
-                </>
-              ) : (
-                <button onClick={() => setConfirmDelete(capa.id)} style={{ background: "transparent", border: "1px solid rgba(198,40,40,0.3)", borderRadius: 6, color: "#ef9a9a", padding: "5px 12px", fontSize: 12, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}>Remover</button>
-              )}
             </div>
           </div>
         ))}
+        {capas.length === 0 && (
+          <p style={{ color: theme.textMuted, fontSize: 13, fontFamily: "'Inter', sans-serif", textAlign: "center", padding: "20px" }}>Nenhuma capa encontrada na pasta public/assinatura/.</p>
+        )}
       </div>
     </div>
   );
@@ -523,7 +496,7 @@ function AbaAssinatura() {
       setPreview(canvas.toDataURL("image/png"));
     };
 
-    const capa = CAPAS_INICIAIS.find(c => c.id === Number(capaId));
+    const capa = CAPAS_REAIS.find(c => c.id === Number(capaId));
     if (capa) {
       const img = new Image();
       img.onload = () => { ctx.drawImage(img, 0, 0, 700, 180); desenhar(); };
@@ -562,7 +535,7 @@ function AbaAssinatura() {
             <label style={labelStyle(theme)}>Capa</label>
             <select value={capaId} onChange={e => setCapaId(e.target.value)} style={{ ...inputStyle(theme), cursor: "pointer" }}>
               <option value="">Sem capa (fundo padrão)</option>
-              {CAPAS_INICIAIS.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              {CAPAS_REAIS.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
         </div>
