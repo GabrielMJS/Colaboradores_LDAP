@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { fetchColaboradoresAdmin, saveOverride, deleteOverride } from "../services/api";
-import { MOCK_COLABORADORES } from "../data/mockData";
+
 
 // -------------------------------------------------------------------
 // Capas — em produção virá do backend
@@ -22,7 +22,7 @@ function Badge({ ativo, label }) {
   return (
     <span style={{
       display: "inline-block", padding: "2px 10px", borderRadius: 20,
-      fontSize: 11, fontFamily: "'Barlow Condensed', sans-serif",
+      fontSize: 11, fontFamily: "'Inter', sans-serif",
       fontWeight: 600, letterSpacing: "0.06em",
       background: ativo ? "rgba(46,125,50,0.2)" : "rgba(198,40,40,0.2)",
       color: ativo ? "#81c784" : "#ef9a9a",
@@ -37,7 +37,7 @@ function SectionTitle({ children }) {
   const theme = useTheme();
   return (
     <h2 style={{
-      fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700,
+      fontFamily: "'Inter', sans-serif", fontWeight: 700,
       fontSize: 16, color: theme.textAccent, letterSpacing: "0.1em",
       textTransform: "uppercase", marginBottom: 20,
     }}>{children}</h2>
@@ -47,7 +47,7 @@ function SectionTitle({ children }) {
 function labelStyle(theme) {
   return {
     display: "block", fontSize: 11, marginBottom: 5,
-    fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600,
+    fontFamily: "'Inter', sans-serif", fontWeight: 600,
     letterSpacing: "0.1em", textTransform: "uppercase",
     color: theme.tableHeaderColor,
   };
@@ -57,7 +57,7 @@ function inputStyle(theme) {
   return {
     background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
     borderRadius: 6, color: theme.inputColor, padding: "8px 12px",
-    fontSize: 13, outline: "none", fontFamily: "'Barlow', sans-serif", width: "100%",
+    fontSize: 13, outline: "none", fontFamily: "'Inter', sans-serif", width: "100%",
   };
 }
 
@@ -77,11 +77,7 @@ function AbaUsuarios() {
   useEffect(() => {
     fetchColaboradoresAdmin()
       .then(setColaboradores)
-      .catch(() => setColaboradores(MOCK_COLABORADORES.map(c => ({
-        ...c, sAMAccountName: c.id, displayName: c.nome,
-        telephoneNumber: c.ramal, mail: c.email, title: c.cargo,
-        ou: c.unidade, department: c.lotacao, visivel: true, _overrides: {},
-      }))))
+      .catch(() => setColaboradores([]))
       .finally(() => setCarregando(false));
   }, []);
 
@@ -154,7 +150,7 @@ function AbaUsuarios() {
   }
 
   if (carregando) return (
-    <div style={{ padding: 48, textAlign: "center", color: theme.textMuted, fontFamily: "'Barlow', sans-serif" }}>
+    <div style={{ padding: 48, textAlign: "center", color: theme.textMuted, fontFamily: "'Inter', sans-serif" }}>
       Carregando colaboradores...
     </div>
   );
@@ -172,7 +168,7 @@ function AbaUsuarios() {
           />
           <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted }}>🔍</span>
         </div>
-        <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'Barlow', sans-serif" }}>
+        <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'Inter', sans-serif" }}>
           {filtrados.length} de {colaboradores.length} colaboradores
         </span>
       </div>
@@ -207,22 +203,22 @@ function AbaUsuarios() {
 
                 {/* Nome + login */}
                 <div>
-                  <div style={{ fontFamily: "'Barlow', sans-serif", fontWeight: 500, fontSize: 14, color: theme.textPrimary }}>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 14, color: theme.textPrimary }}>
                     {c.displayName || c.cn || username}
-                    {temOverride && <span style={{ marginLeft: 8, fontSize: 10, color: theme.isDark ? "#ffb74d" : "#e65100", fontFamily: "'Barlow Condensed', sans-serif" }}>✎ EDITADO</span>}
+                    {temOverride && <span style={{ marginLeft: 8, fontSize: 10, color: theme.isDark ? "#ffb74d" : "#e65100", fontFamily: "'Inter', sans-serif" }}>✎ EDITADO</span>}
                   </div>
-                  <div style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Barlow', sans-serif", marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Inter', sans-serif", marginTop: 2 }}>
                     {username} · {c.department || c.lotacao || "—"}
                   </div>
                 </div>
 
                 {/* Unidade */}
-                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: 13, color: theme.textAccent }}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: 13, color: theme.textAccent }}>
                   {c.ou || c.unidade || "—"}
                 </div>
 
                 {/* Cargo */}
-                <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 13, color: theme.textSecondary }}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textSecondary }}>
                   {c.title || c.cargo || "—"}
                 </div>
 
@@ -234,7 +230,7 @@ function AbaUsuarios() {
                 {/* Ações */}
                 <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                   {feedback.id === username && (
-                    <span style={{ fontSize: 12, color: "#81c784", fontFamily: "'Barlow', sans-serif", alignSelf: "center" }}>
+                    <span style={{ fontSize: 12, color: "#81c784", fontFamily: "'Inter', sans-serif", alignSelf: "center" }}>
                       {feedback.msg}
                     </span>
                   )}
@@ -245,7 +241,7 @@ function AbaUsuarios() {
                       background: "transparent", border: `1px solid ${theme.inputBorder}`,
                       borderRadius: 6, color: theme.textSecondary,
                       padding: "5px 10px", fontSize: 12,
-                      fontFamily: "'Barlow', sans-serif", cursor: "pointer",
+                      fontFamily: "'Inter', sans-serif", cursor: "pointer",
                     }}
                   >
                     {c.visivel !== false ? "👁 Ocultar" : "👁 Mostrar"}
@@ -257,7 +253,7 @@ function AbaUsuarios() {
                       border: `1px solid ${theme.isDark ? "rgba(100,150,255,0.3)" : "rgba(21,101,192,0.25)"}`,
                       borderRadius: 6, color: theme.textAccent,
                       padding: "5px 12px", fontSize: 12,
-                      fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600,
+                      fontFamily: "'Inter', sans-serif", fontWeight: 600,
                       letterSpacing: "0.06em", cursor: "pointer",
                     }}
                   >
@@ -271,7 +267,7 @@ function AbaUsuarios() {
                         background: "transparent", border: "1px solid rgba(198,40,40,0.3)",
                         borderRadius: 6, color: "#ef9a9a",
                         padding: "5px 10px", fontSize: 12,
-                        fontFamily: "'Barlow', sans-serif", cursor: "pointer",
+                        fontFamily: "'Inter', sans-serif", cursor: "pointer",
                       }}
                     >
                       ↺ Reset
@@ -288,7 +284,7 @@ function AbaUsuarios() {
                   background: theme.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,60,160,0.02)",
                   animation: "fadeIn 0.2s ease",
                 }}>
-                  <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16 }}>
+                  <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Inter', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16 }}>
                     Editando: {c.displayName || username} — campos salvos substituem os dados do LDAP
                   </p>
 
@@ -338,7 +334,7 @@ function AbaUsuarios() {
                           transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
                         }} />
                       </div>
-                      <span style={{ fontFamily: "'Barlow', sans-serif", fontSize: 13, color: theme.textPrimary }}>
+                      <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textPrimary }}>
                         Visível na página inicial
                       </span>
                     </label>
@@ -352,7 +348,7 @@ function AbaUsuarios() {
                         background: "linear-gradient(135deg,#1565c0,#0d47a1)",
                         border: "none", borderRadius: 7, color: "#fff",
                         padding: "9px 24px", fontSize: 13,
-                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontFamily: "'Inter', sans-serif",
                         fontWeight: 600, letterSpacing: "0.06em",
                         cursor: salvando ? "not-allowed" : "pointer",
                         opacity: salvando ? 0.7 : 1,
@@ -366,7 +362,7 @@ function AbaUsuarios() {
                         background: "transparent", border: `1px solid ${theme.inputBorder}`,
                         borderRadius: 7, color: theme.textSecondary,
                         padding: "9px 18px", fontSize: 13,
-                        fontFamily: "'Barlow', sans-serif", cursor: "pointer",
+                        fontFamily: "'Inter', sans-serif", cursor: "pointer",
                       }}
                     >
                       Cancelar
@@ -407,7 +403,7 @@ function AbaCapas() {
       <SectionTitle>🖼 Gerenciar Capas</SectionTitle>
 
       <div style={{ background: theme.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,60,160,0.03)", border: theme.rowBorder, borderRadius: 10, padding: 20, marginBottom: 24 }}>
-        <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 14 }}>
+        <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Inter', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 14 }}>
           Adicionar nova capa
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12, alignItems: "end" }}>
@@ -422,7 +418,7 @@ function AbaCapas() {
           <button onClick={adicionar} disabled={!novoNome.trim() || !novoArquivo.trim()} style={{
             background: novoNome && novoArquivo ? "linear-gradient(135deg,#1565c0,#0d47a1)" : theme.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
             border: "none", borderRadius: 6, color: novoNome && novoArquivo ? "#fff" : theme.textMuted,
-            padding: "8px 20px", fontSize: 13, fontFamily: "'Barlow Condensed', sans-serif",
+            padding: "8px 20px", fontSize: 13, fontFamily: "'Inter', sans-serif",
             fontWeight: 600, cursor: novoNome && novoArquivo ? "pointer" : "not-allowed", whiteSpace: "nowrap",
           }}>
             + Adicionar
@@ -440,22 +436,22 @@ function AbaCapas() {
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 40, height: 40, borderRadius: 6, background: theme.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,60,160,0.06)", border: theme.rowBorder, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🖼</div>
               <div>
-                <div style={{ fontFamily: "'Barlow', sans-serif", fontWeight: 500, fontSize: 14, color: theme.textPrimary }}>{capa.nome}</div>
-                <div style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Barlow', sans-serif", marginTop: 2 }}>{capa.arquivo}</div>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: 14, color: theme.textPrimary }}>{capa.nome}</div>
+                <div style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Inter', sans-serif", marginTop: 2 }}>{capa.arquivo}</div>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Badge ativo={capa.ativa} label={capa.ativa ? "ATIVA" : "INATIVA"} />
-              <button onClick={() => setCapas(p => p.map(c => c.id === capa.id ? { ...c, ativa: !c.ativa } : c))} style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, color: theme.textSecondary, padding: "5px 12px", fontSize: 12, fontFamily: "'Barlow', sans-serif", cursor: "pointer" }}>
+              <button onClick={() => setCapas(p => p.map(c => c.id === capa.id ? { ...c, ativa: !c.ativa } : c))} style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, color: theme.textSecondary, padding: "5px 12px", fontSize: 12, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}>
                 {capa.ativa ? "Desativar" : "Ativar"}
               </button>
               {confirmDelete === capa.id ? (
                 <>
-                  <button onClick={() => { setCapas(p => p.filter(c => c.id !== capa.id)); setConfirmDelete(null); }} style={{ background: "rgba(198,40,40,0.15)", border: "1px solid rgba(198,40,40,0.4)", borderRadius: 6, color: "#ef9a9a", padding: "5px 12px", fontSize: 12, fontFamily: "'Barlow', sans-serif", cursor: "pointer" }}>Confirmar</button>
-                  <button onClick={() => setConfirmDelete(null)} style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, color: theme.textMuted, padding: "5px 12px", fontSize: 12, fontFamily: "'Barlow', sans-serif", cursor: "pointer" }}>Cancelar</button>
+                  <button onClick={() => { setCapas(p => p.filter(c => c.id !== capa.id)); setConfirmDelete(null); }} style={{ background: "rgba(198,40,40,0.15)", border: "1px solid rgba(198,40,40,0.4)", borderRadius: 6, color: "#ef9a9a", padding: "5px 12px", fontSize: 12, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}>Confirmar</button>
+                  <button onClick={() => setConfirmDelete(null)} style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, color: theme.textMuted, padding: "5px 12px", fontSize: 12, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}>Cancelar</button>
                 </>
               ) : (
-                <button onClick={() => setConfirmDelete(capa.id)} style={{ background: "transparent", border: "1px solid rgba(198,40,40,0.3)", borderRadius: 6, color: "#ef9a9a", padding: "5px 12px", fontSize: 12, fontFamily: "'Barlow', sans-serif", cursor: "pointer" }}>Remover</button>
+                <button onClick={() => setConfirmDelete(capa.id)} style={{ background: "transparent", border: "1px solid rgba(198,40,40,0.3)", borderRadius: 6, color: "#ef9a9a", padding: "5px 12px", fontSize: 12, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}>Remover</button>
               )}
             </div>
           </div>
@@ -549,7 +545,7 @@ function AbaAssinatura() {
   return (
     <div>
       <SectionTitle>✍ Gerar Assinatura — Modo Admin</SectionTitle>
-      <p style={{ fontSize: 13, color: theme.textSecondary, fontFamily: "'Barlow', sans-serif", marginBottom: 24 }}>
+      <p style={{ fontSize: 13, color: theme.textSecondary, fontFamily: "'Inter', sans-serif", marginBottom: 24 }}>
         Todos os campos são editáveis. Selecione um colaborador para pré-preencher ou preencha manualmente.
       </p>
 
@@ -582,7 +578,7 @@ function AbaAssinatura() {
         <button onClick={gerar} disabled={!form.nome} style={{
           background: form.nome ? "linear-gradient(135deg,#1565c0,#0d47a1)" : theme.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
           border: "none", borderRadius: 8, color: form.nome ? "#fff" : theme.textMuted,
-          padding: "10px 28px", fontSize: 14, fontFamily: "'Barlow Condensed', sans-serif",
+          padding: "10px 28px", fontSize: 14, fontFamily: "'Inter', sans-serif",
           fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase",
           cursor: form.nome ? "pointer" : "not-allowed",
         }}>
@@ -597,7 +593,7 @@ function AbaAssinatura() {
             <img src={preview} alt="Preview" style={{ maxWidth: "100%", borderRadius: 6 }} />
           </div>
           <button onClick={() => { const a = document.createElement("a"); a.href = preview; a.download = `assinatura-${form.nome.split(" ")[0].toLowerCase()}.png`; a.click(); }}
-            style={{ background: "linear-gradient(135deg,#2e7d32,#1b5e20)", border: "none", borderRadius: 8, color: "#fff", padding: "10px 28px", fontSize: 14, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}>
+            style={{ background: "linear-gradient(135deg,#2e7d32,#1b5e20)", border: "none", borderRadius: 8, color: "#fff", padding: "10px 28px", fontSize: 14, fontFamily: "'Inter', sans-serif", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}>
             ↓ Baixar PNG
           </button>
         </div>
@@ -632,17 +628,17 @@ function AbaLogs() {
       <div style={{ background: theme.tableBg, border: theme.tableBorder, borderRadius: 10, overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 140px", gap: 16, padding: "10px 18px", background: theme.tableHeaderBg, borderBottom: theme.rowBorder }}>
           {["USUÁRIO", "NOME", "CAPA USADA", "DATA/HORA"].map(h => (
-            <div key={h} style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: "0.12em", color: theme.tableHeaderColor }}>{h}</div>
+            <div key={h} style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: "0.12em", color: theme.tableHeaderColor }}>{h}</div>
           ))}
         </div>
         {filtrados.map(log => (
           <div key={log.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 140px", gap: 16, padding: "12px 18px", borderBottom: theme.rowBorder }}
             onMouseEnter={e => e.currentTarget.style.background = theme.rowHover}
             onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, color: theme.textAccent }}>{log.usuario}</div>
-            <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 13, color: theme.textPrimary }}>{log.nome}</div>
-            <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 13, color: theme.textSecondary }}>{log.capa}</div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: theme.textMuted }}>{log.data}</div>
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textAccent }}>{log.usuario}</div>
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textPrimary }}>{log.nome}</div>
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textSecondary }}>{log.capa}</div>
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: theme.textMuted }}>{log.data}</div>
           </div>
         ))}
       </div>
@@ -667,7 +663,7 @@ export default function Admin() {
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: theme.pageBg, transition: "background 0.4s", fontFamily: "'Barlow', sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: theme.pageBg, transition: "background 0.4s", fontFamily: "'Inter', sans-serif" }}>
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }`}</style>
 
       <header style={{
@@ -677,12 +673,12 @@ export default function Admin() {
         position: "sticky", top: 0, zIndex: 100,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <button onClick={() => navigate("/")} style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, color: theme.textSecondary, padding: "6px 12px", fontSize: 12, cursor: "pointer", fontFamily: "'Barlow', sans-serif" }}
+          <button onClick={() => navigate("/")} style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, color: theme.textSecondary, padding: "6px 12px", fontSize: 12, cursor: "pointer", fontFamily: "'Inter', sans-serif" }}
             onMouseEnter={e => e.currentTarget.style.background = theme.rowHover}
             onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
             ← Início
           </button>
-          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 18, color: theme.textPrimary, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 18, color: theme.textPrimary, letterSpacing: "0.08em", textTransform: "uppercase" }}>
             🛰 AEB
             <span style={{ marginLeft: 12, paddingLeft: 12, borderLeft: `1px solid ${theme.isDark ? "rgba(255,255,255,0.1)" : "rgba(0,60,160,0.15)"}`, fontWeight: 600, fontSize: 16, color: theme.textAccent }}>
               Painel Admin
@@ -690,13 +686,13 @@ export default function Admin() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'Barlow', sans-serif" }}>👤 {user?.displayName || user?.username}</span>
+          <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'Inter', sans-serif" }}>👤 {user?.displayName || user?.username}</span>
           <button onClick={theme.toggleTheme} style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 18, transition: "transform 0.2s" }}
             onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
             onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}>
             {theme.isDark ? "☀️" : "🌙"}
           </button>
-          <button onClick={() => { logout(); navigate("/login"); }} style={{ background: "rgba(198,40,40,0.1)", border: "1px solid rgba(198,40,40,0.3)", borderRadius: 6, color: "#ef9a9a", padding: "7px 14px", fontSize: 12, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, letterSpacing: "0.06em", cursor: "pointer" }}
+          <button onClick={() => { logout(); navigate("/login"); }} style={{ background: "rgba(198,40,40,0.1)", border: "1px solid rgba(198,40,40,0.3)", borderRadius: 6, color: "#ef9a9a", padding: "7px 14px", fontSize: 12, fontFamily: "'Inter', sans-serif", fontWeight: 600, letterSpacing: "0.06em", cursor: "pointer" }}
             onMouseEnter={e => e.currentTarget.style.background = "rgba(198,40,40,0.2)"}
             onMouseLeave={e => e.currentTarget.style.background = "rgba(198,40,40,0.1)"}>
             Sair
@@ -713,7 +709,7 @@ export default function Admin() {
               borderBottom: abaAtiva === aba.id ? `2px solid ${theme.textAccent}` : "2px solid transparent",
               borderRadius: 0, color: abaAtiva === aba.id ? theme.textAccent : theme.textMuted,
               padding: "10px 20px", fontSize: 13,
-              fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600,
+              fontFamily: "'Inter', sans-serif", fontWeight: 600,
               letterSpacing: "0.08em", textTransform: "uppercase",
               cursor: "pointer", transition: "color 0.2s, border-color 0.2s", marginBottom: -1,
             }}>

@@ -115,7 +115,7 @@ export default function Home() {
             }}>
               {["FOTO", "NOME", "UNIDADE", "LOTAÇÃO", "RAMAL", "E-MAIL", "CARGO"].map(h => (
                 <div key={h} style={{
-                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontFamily: "'Inter', sans-serif",
                   fontWeight: 600, fontSize: 11,
                   letterSpacing: "0.12em",
                   color: theme.tableHeaderColor,
@@ -129,7 +129,7 @@ export default function Home() {
             {carregando && (
               <div style={{
                 padding: "48px", textAlign: "center",
-                color: theme.textMuted, fontFamily: "'Barlow', sans-serif",
+                color: theme.textMuted, fontFamily: "'Inter', sans-serif",
                 fontSize: 14, display: "flex", alignItems: "center",
                 justifyContent: "center", gap: 10,
               }}>
@@ -147,7 +147,7 @@ export default function Home() {
             {!carregando && erro && (
               <div style={{
                 padding: "48px", textAlign: "center",
-                color: "#ef5350", fontFamily: "'Barlow', sans-serif", fontSize: 14,
+                color: "#ef5350", fontFamily: "'Inter', sans-serif", fontSize: 14,
               }}>
                 ⚠ {erro}
               </div>
@@ -156,7 +156,7 @@ export default function Home() {
             {!carregando && !erro && filtered.length === 0 && (
               <div style={{
                 padding: "48px", textAlign: "center",
-                color: theme.textMuted, fontFamily: "'Barlow', sans-serif", fontSize: 14,
+                color: theme.textMuted, fontFamily: "'Inter', sans-serif", fontSize: 14,
               }}>
                 Nenhum colaborador encontrado.
               </div>
@@ -170,7 +170,7 @@ export default function Home() {
           {!carregando && !erro && (
             <div style={{
               marginTop: 12, textAlign: "right", fontSize: 12,
-              color: theme.textMuted, fontFamily: "'Barlow', sans-serif",
+              color: theme.textMuted, fontFamily: "'Inter', sans-serif",
             }}>
               {filtered.length} de {colaboradores.length} colaborador{colaboradores.length !== 1 ? "es" : ""}
             </div>

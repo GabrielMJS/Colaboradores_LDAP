@@ -1,12 +1,11 @@
 import { useState } from "react";
 import Avatar from "./Avatar";
 import { useTheme } from "../context/ThemeContext";
-import { CARGO_COLORS } from "../data/mockData";
 
 export default function ColaboradorRow({ colaborador }) {
   const [expanded, setExpanded] = useState(false);
   const theme = useTheme();
-  const cargoColor = CARGO_COLORS[theme.isDark ? "dark" : "light"][colaborador.cargo] || (theme.isDark ? "#90caf9" : "#1565c0");
+  const cargoColor = theme.isDark ? "#90caf9" : "#1565c0";
 
   return (
     <div style={{ borderBottom: theme.rowBorder, transition: "background 0.2s" }}>
@@ -33,7 +32,7 @@ export default function ColaboradorRow({ colaborador }) {
         {/* Nome */}
         <div style={{
           color: theme.textPrimary,
-          fontFamily: "'Barlow', sans-serif",
+          fontFamily: "'Inter', sans-serif",
           fontWeight: 500,
           fontSize: 14,
           display: "flex",
@@ -47,7 +46,7 @@ export default function ColaboradorRow({ colaborador }) {
         {/* Unidade */}
         <div style={{
           color: theme.textAccent,
-          fontFamily: "'Barlow Condensed', sans-serif",
+          fontFamily: "'Inter', sans-serif",
           fontWeight: 600,
           fontSize: 13,
           letterSpacing: "0.05em",
@@ -59,7 +58,7 @@ export default function ColaboradorRow({ colaborador }) {
         {/* Lotação */}
         <div style={{
           color: theme.textSecondary,
-          fontFamily: "'Barlow', sans-serif",
+          fontFamily: "'Inter', sans-serif",
           fontSize: 13,
         }}>
           {colaborador.lotacao}
@@ -68,7 +67,7 @@ export default function ColaboradorRow({ colaborador }) {
         {/* Ramal */}
         <div style={{
           color: theme.textSecondary,
-          fontFamily: "'Barlow Condensed', sans-serif",
+          fontFamily: "'Inter', sans-serif",
           fontSize: 14,
           textAlign: "center",
         }}>
@@ -78,7 +77,7 @@ export default function ColaboradorRow({ colaborador }) {
         {/* Email */}
         <div style={{
           color: theme.textLink,
-          fontFamily: "'Barlow', sans-serif",
+          fontFamily: "'Inter', sans-serif",
           fontSize: 12,
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -90,7 +89,7 @@ export default function ColaboradorRow({ colaborador }) {
         {/* Cargo */}
         <div style={{
           color: cargoColor,
-          fontFamily: "'Barlow', sans-serif",
+          fontFamily: "'Inter', sans-serif",
           fontSize: 13,
           fontWeight: 500,
         }}>
@@ -126,7 +125,7 @@ export default function ColaboradorRow({ colaborador }) {
                 color: theme.isDark ? "white" : btn.color === theme.isDark ? "white" : "#fff",
                 padding: "6px 14px",
                 fontSize: 12,
-                fontFamily: "'Barlow', sans-serif",
+                fontFamily: "'Inter', sans-serif",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",

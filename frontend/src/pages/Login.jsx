@@ -71,7 +71,7 @@ export default function Login() {
     padding: "12px 16px",
     fontSize: 14,
     outline: "none",
-    fontFamily: "'Barlow', sans-serif",
+    fontFamily: "'Inter', sans-serif",
     transition: "border-color 0.2s",
     boxSizing: "border-box",
   };
@@ -160,7 +160,7 @@ export default function Login() {
               🛰
             </div>
             <div style={{
-              fontFamily: "'Barlow Condensed', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 700, fontSize: 24,
               color: isDark ? "#e8eef7" : "#0d1f3c",
               letterSpacing: "0.1em", textTransform: "uppercase",
@@ -178,7 +178,7 @@ export default function Login() {
             <div style={{
               fontSize: 13,
               color: isDark ? "rgba(150,190,255,0.6)" : "rgba(0,80,200,0.5)",
-              fontFamily: "'Barlow', sans-serif",
+              fontFamily: "'Inter', sans-serif",
             }}>
               Sistema de Assinaturas
             </div>
@@ -188,7 +188,7 @@ export default function Login() {
           <div style={{ marginBottom: 16 }}>
             <label style={{
               display: "block", marginBottom: 6,
-              fontSize: 11, fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: 11, fontFamily: "'Inter', sans-serif",
               fontWeight: 600, letterSpacing: "0.1em",
               color: isDark ? "rgba(150,190,255,0.5)" : "rgba(0,60,160,0.45)",
               textTransform: "uppercase",
@@ -210,7 +210,7 @@ export default function Login() {
           <div style={{ marginBottom: 24, position: "relative" }}>
             <label style={{
               display: "block", marginBottom: 6,
-              fontSize: 11, fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: 11, fontFamily: "'Inter', sans-serif",
               fontWeight: 600, letterSpacing: "0.1em",
               color: isDark ? "rgba(150,190,255,0.5)" : "rgba(0,60,160,0.45)",
               textTransform: "uppercase",
@@ -252,7 +252,7 @@ export default function Login() {
               borderRadius: 6, padding: "8px 12px",
               marginBottom: 16,
               fontSize: 13, color: "#ef5350",
-              fontFamily: "'Barlow', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               animation: "fadeIn 0.2s ease",
             }}>
               ⚠ {error}
@@ -272,7 +272,7 @@ export default function Login() {
               color: loading ? (isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)") : "#fff",
               padding: "13px",
               fontSize: 14,
-              fontFamily: "'Barlow Condensed', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 700, letterSpacing: "0.1em",
               textTransform: "uppercase",
               cursor: loading ? "not-allowed" : "pointer",
@@ -302,7 +302,7 @@ export default function Login() {
             marginTop: 24, textAlign: "center",
             fontSize: 11,
             color: isDark ? "rgba(150,180,220,0.3)" : "rgba(0,60,160,0.25)",
-            fontFamily: "'Barlow', sans-serif",
+            fontFamily: "'Inter', sans-serif",
           }}>
             Use suas credenciais de rede da AEB
           </div>

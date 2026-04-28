@@ -2,15 +2,18 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
-import { MOCK_COLABORADORES } from "../data/mockData";
 
-// Capas disponíveis na pasta public/assinaturas
-// Adicione os nomes dos arquivos aqui conforme for colocando na pasta
-const CAPAS = [
-  { id: 1, nome: "Padrão Espacial", arquivo: "/assinaturas/capa1.png" },
-  { id: 2, nome: "Satélite", arquivo: "/assinaturas/capa2.png" },
-  { id: 3, nome: "Lançador", arquivo: "/assinaturas/capa3.png" },
-];
+// Obtém dinamicamente todos os arquivos da pasta public/assinatura
+const rawCapas = import.meta.glob('/public/assinatura/*.(png|jpg|jpeg|svg)', { eager: true, query: '?url', import: 'default' });
+
+const CAPAS = Object.keys(rawCapas).map((path, index) => {
+  const fileName = path.split('/').pop();
+  return {
+    id: index + 1,
+    nome: fileName, // Usa o próprio nome do arquivo
+    arquivo: rawCapas[path]
+  };
+});
 
 // Removidas as larguras hardcoded para podermos usar o tamanho real da imagem
 
@@ -196,12 +199,12 @@ export default function Assinaturas() {
     fontSize: 13,
     width: "100%",
     outline: "none",
-    fontFamily: "'Barlow', sans-serif",
+    fontFamily: "'Inter', sans-serif",
   };
 
   const labelStyle = {
     fontSize: 11,
-    fontFamily: "'Barlow Condensed', sans-serif",
+    fontFamily: "'Inter', sans-serif",
     fontWeight: 600,
     letterSpacing: "0.1em",
     color: theme.tableHeaderColor,
@@ -215,7 +218,7 @@ export default function Assinaturas() {
       minHeight: "100vh",
       background: theme.pageBg,
       transition: "background 0.4s ease",
-      fontFamily: "'Barlow', sans-serif",
+      fontFamily: "'Inter', sans-serif",
     }}>
 
       {/* Header simples */}
@@ -243,7 +246,7 @@ export default function Assinaturas() {
               padding: "6px 12px",
               fontSize: 12,
               cursor: "pointer",
-              fontFamily: "'Barlow', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               display: "flex",
               alignItems: "center",
               gap: 6,
@@ -256,7 +259,7 @@ export default function Assinaturas() {
           </button>
 
           <div style={{
-            fontFamily: "'Barlow Condensed', sans-serif",
+            fontFamily: "'Inter', sans-serif",
             fontWeight: 700,
             fontSize: 18,
             color: theme.textPrimary,
@@ -312,7 +315,7 @@ export default function Assinaturas() {
           marginBottom: 28,
         }}>
           <h2 style={{
-            fontFamily: "'Barlow Condensed', sans-serif",
+            fontFamily: "'Inter', sans-serif",
             fontWeight: 700,
             fontSize: 16,
             color: theme.textAccent,
@@ -364,7 +367,7 @@ export default function Assinaturas() {
                     width: "100%",
                     textAlign: "left",
                     cursor: "pointer",
-                    fontFamily: "'Barlow', sans-serif",
+                    fontFamily: "'Inter', sans-serif",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -406,7 +409,7 @@ export default function Assinaturas() {
                         fontSize: 13,
                         color: !capaId ? theme.textAccent : theme.textSecondary,
                         cursor: "pointer",
-                        fontFamily: "'Barlow', sans-serif",
+                        fontFamily: "'Inter', sans-serif",
                         background: !capaId ? theme.dropdownSelected : "transparent",
                         transition: "background 0.15s",
                         fontStyle: "italic",
@@ -425,7 +428,7 @@ export default function Assinaturas() {
                           fontSize: 13,
                           color: c.id === Number(capaId) ? theme.textAccent : theme.textSecondary,
                           cursor: "pointer",
-                          fontFamily: "'Barlow', sans-serif",
+                          fontFamily: "'Inter', sans-serif",
                           background: c.id === Number(capaId) ? theme.dropdownSelected : "transparent",
                           transition: "background 0.15s",
                         }}
@@ -451,7 +454,7 @@ export default function Assinaturas() {
               padding: "16px",
               marginBottom: 20,
             }}>
-              <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>
+              <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Inter', sans-serif", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>
                 Dados puxados automaticamente
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
@@ -465,7 +468,7 @@ export default function Assinaturas() {
                     <div style={{
                       fontSize: 13,
                       color: theme.textPrimary,
-                      fontFamily: "'Barlow', sans-serif",
+                      fontFamily: "'Inter', sans-serif",
                       padding: "7px 0",
                       borderBottom: theme.rowBorder,
                     }}>
@@ -522,7 +525,7 @@ export default function Assinaturas() {
               color: colaborador && capa ? "#fff" : theme.textMuted,
               padding: "10px 28px",
               fontSize: 14,
-              fontFamily: "'Barlow Condensed', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
@@ -547,7 +550,7 @@ export default function Assinaturas() {
             animation: "fadeIn 0.3s ease",
           }}>
             <h2 style={{
-              fontFamily: "'Barlow Condensed', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontWeight: 700,
               fontSize: 16,
               color: theme.textAccent,
@@ -582,7 +585,7 @@ export default function Assinaturas() {
                 color: "#fff",
                 padding: "10px 28px",
                 fontSize: 14,
-                fontFamily: "'Barlow Condensed', sans-serif",
+                fontFamily: "'Inter', sans-serif",
                 fontWeight: 600,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",

@@ -38,7 +38,7 @@ export default function Header({ search, onSearch, unidade, onUnidade, available
         </div>
         <div>
           <div style={{
-            fontFamily: "'Barlow Condensed', sans-serif",
+            fontFamily: "'Inter', sans-serif",
             fontWeight: 700,
             fontSize: 18,
             color: theme.textPrimary,
@@ -56,7 +56,7 @@ export default function Header({ search, onSearch, unidade, onUnidade, available
           marginLeft: 8,
           paddingLeft: 16,
           borderLeft: `1px solid ${theme.isDark ? "rgba(255,255,255,0.1)" : "rgba(0,60,160,0.15)"}`,
-          fontFamily: "'Barlow Condensed', sans-serif",
+          fontFamily: "'Inter', sans-serif",
           fontWeight: 600,
           fontSize: 16,
           color: theme.textAccent,
@@ -80,7 +80,7 @@ export default function Header({ search, onSearch, unidade, onUnidade, available
             color: theme.textAccent,
             padding: "7px 14px",
             fontSize: 12,
-            fontFamily: "'Barlow Condensed', sans-serif",
+            fontFamily: "'Inter', sans-serif",
             fontWeight: 600,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
@@ -113,7 +113,7 @@ export default function Header({ search, onSearch, unidade, onUnidade, available
               fontSize: 13,
               width: 240,
               outline: "none",
-              fontFamily: "'Barlow', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               transition: "border-color 0.2s",
             }}
             onFocus={e => e.target.style.borderColor = theme.inputBorderFocus}
@@ -144,7 +144,7 @@ export default function Header({ search, onSearch, unidade, onUnidade, available
               width: 240,
               textAlign: "left",
               cursor: "pointer",
-              fontFamily: "'Barlow', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -188,7 +188,7 @@ export default function Header({ search, onSearch, unidade, onUnidade, available
                     fontSize: 13,
                     color: u === unidade ? theme.textAccent : theme.textSecondary,
                     cursor: "pointer",
-                    fontFamily: "'Barlow', sans-serif",
+                    fontFamily: "'Inter', sans-serif",
                     background: u === unidade ? theme.dropdownSelected : "transparent",
                     transition: "background 0.15s",
                     fontStyle: u === "Selecionar Unidade" ? "italic" : "normal",
