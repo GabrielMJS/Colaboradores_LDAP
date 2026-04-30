@@ -4,10 +4,12 @@ AEB - Agência Espacial Brasileira
 """
 
 import os
+import io
 import base64
 from typing import Optional
 from ldap3 import Server, Connection, ALL, SUBTREE
 from ldap3.core.exceptions import LDAPException, LDAPBindError, LDAPSocketOpenError
+from PIL import Image, ImageOps
 
 
 class LDAPService:
@@ -182,12 +184,24 @@ class LDAPService:
             try:
                 value = entry[attr].value
 
-                # Foto: bytes → string base64
+                # Foto: bytes → string base64 redimensionada
                 if attr in ("thumbnailPhoto", "jpegPhoto"):
                     if value and isinstance(value, bytes):
                         # Se não tiver foto ainda, pega essa
                         if not parsed.get("foto"):
-                            parsed["foto"] = "data:image/jpeg;base64," + base64.b64encode(value).decode("utf-8")
+                            try:
+                                img = Image.open(io.BytesIO(value))
+                                if img.mode != 'RGB':
+                                    img = img.convert('RGB')
+                                # Redimensiona e corta para um quadrado de 256x256 mantendo aspecto
+                                img = ImageOps.fit(img, (256, 256), Image.Resampling.LANCZOS)
+                                buffer = io.BytesIO()
+                                img.save(buffer, format="JPEG", quality=85)
+                                resized_bytes = buffer.getvalue()
+                                parsed["foto"] = "data:image/jpeg;base64," + base64.b64encode(resized_bytes).decode("utf-8")
+                            except Exception as img_err:
+                                print(f"Erro ao redimensionar imagem: {img_err}")
+                                parsed["foto"] = "data:image/jpeg;base64," + base64.b64encode(value).decode("utf-8")
                     else:
                         if "foto" not in parsed:
                             parsed["foto"] = None

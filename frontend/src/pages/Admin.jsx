@@ -7,19 +7,12 @@ import { fetchColaboradoresAdmin, saveOverride, deleteOverride } from "../servic
 
 // -------------------------------------------------------------------
 // Capas — em produção virá do backend
-// -------------------------------------------------------------------
-// Obtém dinamicamente todos os arquivos da pasta public/assinatura
-const rawCapas = import.meta.glob('/public/assinatura/*.(png|jpg|jpeg|svg)', { eager: true, query: '?url', import: 'default' });
-
-const CAPAS_REAIS = Object.keys(rawCapas).map((path, index) => {
-  const fileName = path.split('/').pop();
-  return {
-    id: index + 1,
-    nome: fileName, // Usa o próprio nome do arquivo
-    arquivo: rawCapas[path],
-    ativa: true
-  };
-});
+// Substituído temporariamente o import.meta.glob para evitar warnings do Vite sobre a pasta /public
+const CAPAS_REAIS = [
+  { id: 1, nome: "Assinatura 30 Anos.png", arquivo: "/assinatura/Assinatura 30 Anos.png", ativa: true },
+  { id: 2, nome: "Assinatura Independência.png", arquivo: "/assinatura/Assinatura Independência.png", ativa: true },
+  { id: 3, nome: "Assinatura Padrão.png", arquivo: "/assinatura/Assinatura Padrão.png", ativa: true }
+];
 
 // -------------------------------------------------------------------
 // Helpers
@@ -446,6 +439,8 @@ function AbaAssinatura() {
   const [capaId, setCapaId] = useState("");
   const [form, setForm] = useState({ nome: "", cargo: "", lotacao: "", ramal: "", email: "" });
   const [preview, setPreview] = useState(null);
+  const [capaDropdownOpen, setCapaDropdownOpen] = useState(false);
+  const [colabDropdownOpen, setColabDropdownOpen] = useState(false);
 
   useEffect(() => {
     fetchColaboradoresAdmin().then(setColaboradores).catch(() => setColaboradores([]));
@@ -468,9 +463,10 @@ function AbaAssinatura() {
     const canvas = canvasEl;
     if (!canvas || !form.nome) return;
     const ctx = canvas.getContext("2d");
-    canvas.width = 700; canvas.height = 180;
 
-    const desenhar = () => {
+    const desenharComFallback = () => {
+      canvas.width = 700; canvas.height = 180;
+      ctx.fillStyle = "#0d1f3c"; ctx.fillRect(0, 0, 700, 180);
       const textX = 195, startY = 45, lineH = 22;
       ctx.font = "bold 18px Arial"; ctx.fillStyle = "#FFFFFF";
       ctx.fillText(form.nome, textX, startY);
@@ -499,11 +495,59 @@ function AbaAssinatura() {
     const capa = CAPAS_REAIS.find(c => c.id === Number(capaId));
     if (capa) {
       const img = new Image();
-      img.onload = () => { ctx.drawImage(img, 0, 0, 700, 180); desenhar(); };
-      img.onerror = () => { ctx.fillStyle = "#0d1f3c"; ctx.fillRect(0, 0, 700, 180); desenhar(); };
+      img.crossOrigin = "anonymous";
       img.src = capa.arquivo;
+
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const textX = canvas.width * 0.305;
+        let currentY = canvas.height * 0.30;
+        const lineSpacing = canvas.height * 0.14;
+
+        const fontNome = Math.round(canvas.height * 0.110);
+        const fontMedia = Math.round(canvas.height * 0.075);
+        const fontAeb = Math.round(canvas.height * 0.098);
+
+        ctx.font = `bold ${fontNome}px 'Times New Roman', Times, serif`;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(form.nome, textX, currentY);
+        currentY += lineSpacing;
+
+        ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(form.cargo, textX, currentY);
+        currentY += lineSpacing - (canvas.height * 0.01);
+
+        ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(form.lotacao, textX, currentY);
+        currentY += lineSpacing + (canvas.height * 0.02);
+
+        ctx.font = `bold ${fontAeb}px 'Times New Roman', Times, serif`;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText("Agência Espacial Brasileira", textX, currentY);
+        currentY += lineSpacing;
+
+        let ramalFormatado = form.ramal || "";
+        const apenasDigitos = String(ramalFormatado).replace(/\D/g, '');
+        const digitosFinais = apenasDigitos.slice(-4);
+        ramalFormatado = `(61) 2033-${digitosFinais || "XXXX"}`;
+
+        ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(`${ramalFormatado}    ${form.email}`, textX, currentY);
+
+        setPreview(canvas.toDataURL("image/png"));
+      };
+
+      img.onerror = () => {
+        desenharComFallback();
+      };
     } else {
-      ctx.fillStyle = "#0d1f3c"; ctx.fillRect(0, 0, 700, 180); desenhar();
+      desenharComFallback();
     }
   }
 
@@ -526,17 +570,115 @@ function AbaAssinatura() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
           <div>
             <label style={labelStyle(theme)}>Colaborador (opcional)</label>
-            <select value={colaboradorId} onChange={e => setColaboradorId(e.target.value)} style={{ ...inputStyle(theme), cursor: "pointer" }}>
-              <option value="">Preencher manualmente...</option>
-              {colaboradores.map(c => <option key={c.sAMAccountName} value={c.sAMAccountName}>{c.displayName || c.sAMAccountName}</option>)}
-            </select>
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => { setColabDropdownOpen(o => !o); setCapaDropdownOpen(false); }}
+                style={{
+                  ...inputStyle(theme), cursor: "pointer", textAlign: "left", whiteSpace: "nowrap",
+                  overflow: "hidden", textOverflow: "ellipsis", position: "relative"
+                }}
+              >
+                {colaborador ? (colaborador.displayName || colaborador.sAMAccountName) : "Preencher manualmente..."}
+                <span style={{
+                  position: "absolute", right: 14, top: "50%", transform: `translateY(-50%) rotate(${colabDropdownOpen ? 180 : 0}deg)`,
+                  transition: "transform 0.2s", color: theme.inputPlaceholder || theme.textMuted, fontSize: 10
+                }}>▼</span>
+              </button>
+
+              {colabDropdownOpen && (
+                <div style={{
+                  position: "absolute", top: "calc(100% + 4px)", left: 0, width: "100%",
+                  background: theme.dropdownBg || (theme.isDark ? "#1a2a4a" : "#fff"),
+                  border: `1px solid ${theme.dropdownBorder || theme.inputBorder}`,
+                  borderRadius: 8, maxHeight: 250, overflowY: "auto", zIndex: 200, boxShadow: "0 16px 48px rgba(0,0,0,0.3)"
+                }}>
+                  <div
+                    onClick={() => { setColaboradorId(""); setColabDropdownOpen(false); }}
+                    style={{
+                      padding: "9px 16px", fontSize: 13, cursor: "pointer",
+                      color: !colaboradorId ? theme.textAccent : theme.textSecondary,
+                      background: !colaboradorId ? (theme.dropdownSelected || (theme.isDark ? "rgba(100,150,255,0.1)" : "rgba(0,100,255,0.05)")) : "transparent",
+                      fontStyle: "italic"
+                    }}
+                    onMouseEnter={e => { if (colaboradorId) e.currentTarget.style.background = theme.dropdownHover || (theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"); }}
+                    onMouseLeave={e => { if (colaboradorId) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    Preencher manualmente...
+                  </div>
+                  {colaboradores.map(c => (
+                    <div
+                      key={c.sAMAccountName}
+                      onClick={() => { setColaboradorId(c.sAMAccountName); setColabDropdownOpen(false); }}
+                      style={{
+                        padding: "9px 16px", fontSize: 13, cursor: "pointer",
+                        color: c.sAMAccountName === colaboradorId ? theme.textAccent : theme.textSecondary,
+                        background: c.sAMAccountName === colaboradorId ? (theme.dropdownSelected || (theme.isDark ? "rgba(100,150,255,0.1)" : "rgba(0,100,255,0.05)")) : "transparent",
+                      }}
+                      onMouseEnter={e => { if (c.sAMAccountName !== colaboradorId) e.currentTarget.style.background = theme.dropdownHover || (theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"); }}
+                      onMouseLeave={e => { if (c.sAMAccountName !== colaboradorId) e.currentTarget.style.background = "transparent"; }}
+                    >
+                      {c.displayName || c.sAMAccountName}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <label style={labelStyle(theme)}>Capa</label>
-            <select value={capaId} onChange={e => setCapaId(e.target.value)} style={{ ...inputStyle(theme), cursor: "pointer" }}>
-              <option value="">Sem capa (fundo padrão)</option>
-              {CAPAS_REAIS.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-            </select>
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => { setCapaDropdownOpen(o => !o); setColabDropdownOpen(false); }}
+                style={{
+                  ...inputStyle(theme), cursor: "pointer", textAlign: "left", whiteSpace: "nowrap",
+                  overflow: "hidden", textOverflow: "ellipsis", position: "relative"
+                }}
+              >
+                {capaId ? (CAPAS_REAIS.find(c => c.id === Number(capaId))?.nome || "Sem capa (fundo padrão)") : "Sem capa (fundo padrão)"}
+                <span style={{
+                  position: "absolute", right: 14, top: "50%", transform: `translateY(-50%) rotate(${capaDropdownOpen ? 180 : 0}deg)`,
+                  transition: "transform 0.2s", color: theme.inputPlaceholder || theme.textMuted, fontSize: 10
+                }}>▼</span>
+              </button>
+
+              {capaDropdownOpen && (
+                <div style={{
+                  position: "absolute", top: "calc(100% + 4px)", left: 0, width: "100%",
+                  background: theme.dropdownBg || (theme.isDark ? "#1a2a4a" : "#fff"),
+                  border: `1px solid ${theme.dropdownBorder || theme.inputBorder}`,
+                  borderRadius: 8, maxHeight: 250, overflowY: "auto", zIndex: 200, boxShadow: "0 16px 48px rgba(0,0,0,0.3)"
+                }}>
+                  <div
+                    onClick={() => { setCapaId(""); setCapaDropdownOpen(false); }}
+                    style={{
+                      padding: "9px 16px", fontSize: 13, cursor: "pointer",
+                      color: !capaId ? theme.textAccent : theme.textSecondary,
+                      background: !capaId ? (theme.dropdownSelected || (theme.isDark ? "rgba(100,150,255,0.1)" : "rgba(0,100,255,0.05)")) : "transparent",
+                      fontStyle: "italic"
+                    }}
+                    onMouseEnter={e => { if (capaId) e.currentTarget.style.background = theme.dropdownHover || (theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"); }}
+                    onMouseLeave={e => { if (capaId) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    Sem capa (fundo padrão)
+                  </div>
+                  {CAPAS_REAIS.map(c => (
+                    <div
+                      key={c.id}
+                      onClick={() => { setCapaId(c.id); setCapaDropdownOpen(false); }}
+                      style={{
+                        padding: "9px 16px", fontSize: 13, cursor: "pointer",
+                        color: c.id === Number(capaId) ? theme.textAccent : theme.textSecondary,
+                        background: c.id === Number(capaId) ? (theme.dropdownSelected || (theme.isDark ? "rgba(100,150,255,0.1)" : "rgba(0,100,255,0.05)")) : "transparent",
+                      }}
+                      onMouseEnter={e => { if (c.id !== Number(capaId)) e.currentTarget.style.background = theme.dropdownHover || (theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"); }}
+                      onMouseLeave={e => { if (c.id !== Number(capaId)) e.currentTarget.style.background = "transparent"; }}
+                    >
+                      {c.nome}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

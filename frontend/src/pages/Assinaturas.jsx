@@ -3,17 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 
-// Obtém dinamicamente todos os arquivos da pasta public/assinatura
-const rawCapas = import.meta.glob('/public/assinatura/*.(png|jpg|jpeg|svg)', { eager: true, query: '?url', import: 'default' });
-
-const CAPAS = Object.keys(rawCapas).map((path, index) => {
-  const fileName = path.split('/').pop();
-  return {
-    id: index + 1,
-    nome: fileName, // Usa o próprio nome do arquivo
-    arquivo: rawCapas[path]
-  };
-});
+// Em produção, isso virá do backend.
+// Substituído temporariamente o import.meta.glob para evitar warnings do Vite sobre a pasta /public
+const CAPAS = [
+  { id: 1, nome: "Assinatura 30 Anos.png", arquivo: "/assinatura/Assinatura 30 Anos.png" },
+  { id: 2, nome: "Assinatura Independência.png", arquivo: "/assinatura/Assinatura Independência.png" },
+  { id: 3, nome: "Assinatura Padrão.png", arquivo: "/assinatura/Assinatura Padrão.png" }
+];
 
 // Removidas as larguras hardcoded para podermos usar o tamanho real da imagem
 
@@ -68,12 +64,12 @@ export default function Assinaturas() {
       // Usando proporções para ficar perfeito em qualquer resolução
       const textX = canvas.width * 0.305; // Ajuste horizontal (após a logo)
       let currentY = canvas.height * 0.30; // Ajuste vertical inicial
-      const lineSpacing = canvas.height * 0.11; // Espaço entre linhas
+      const lineSpacing = canvas.height * 0.14; // Espaço entre linhas
 
       // Tamanhos de fonte proporcionais
-      const fontNome = Math.round(canvas.height * 0.085);
-      const fontMedia = Math.round(canvas.height * 0.055);
-      const fontAeb = Math.round(canvas.height * 0.075);
+      const fontNome = Math.round(canvas.height * 0.110);
+      const fontMedia = Math.round(canvas.height * 0.075);
+      const fontAeb = Math.round(canvas.height * 0.098);
 
       // Nome
       ctx.font = `bold ${fontNome}px 'Times New Roman', Times, serif`;

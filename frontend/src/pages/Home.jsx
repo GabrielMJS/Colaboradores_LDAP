@@ -12,7 +12,30 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [unidade, setUnidade] = useState("Selecionar Unidade");
   const [currentPage, setCurrentPage] = useState(1);
+  const [ramaisMap, setRamaisMap] = useState({});
   const theme = useTheme();
+
+  // Carrega colaboradores_update.json e monta mapa nome -> dados
+  useEffect(() => {
+    fetch("/colaboradores_update.json")
+      .then(res => res.json())
+      .then(data => {
+        const map = {};
+        for (const entry of data) {
+          const nome = (entry.nome || "").trim().toUpperCase();
+          if (nome) {
+            map[nome] = {
+              ramal:     entry.ramal || "",
+              email:     entry.email || "",
+              lotacao:   entry.lotacao || "",
+              pendencia: entry.pendencia || "",
+            };
+          }
+        }
+        setRamaisMap(map);
+      })
+      .catch(() => console.warn("Não foi possível carregar colaboradores_update.json"));
+  }, []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -71,14 +94,43 @@ export default function Home() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginated = filtered.slice(startIndex, startIndex + itemsPerPage);
 
+  function extrairRamalCurto(telephoneNumber) {
+    // LDAP retorna "2033-4070" -> extraímos "4070"
+    if (!telephoneNumber) return "";
+    const str = String(telephoneNumber).trim();
+    if (str.includes("-")) return str.split("-").pop();
+    return str;
+  }
+
+  /**
+   * Normaliza dados do colaborador para exibição.
+   *
+   * HIERARQUIA DE DADOS (prioridade):
+   *   1º  LDAP (fonte primária — sempre prevalece)
+   *   2º  colaboradores_update.json (fallback — futuro banco de dados)
+   */
   function normalizarColaborador(c, index) {
+    const nome = c.displayName || c.cn || "Sem nome";
+    const nomeUpper = nome.trim().toUpperCase();
+    const jsonData = ramaisMap[nomeUpper] || {};
+
+    // Ramal: 1º LDAP (curto) -> 2º JSON
+    let ramal = extrairRamalCurto(c.telephoneNumber);
+    if (!ramal) ramal = jsonData.ramal || "";
+
+    // Email: 1º LDAP -> 2º JSON
+    const email = c.mail || jsonData.email || "";
+
+    // Lotação: 1º LDAP (department) -> 2º JSON
+    const lotacao = c.department || jsonData.lotacao || "";
+
     return {
       id:      c.sAMAccountName || c.dn || index,
-      nome:    c.displayName || c.cn || "Sem nome",
+      nome,
       unidade: c.ou || "",
-      lotacao: c.department || "",
-      ramal:   c.telephoneNumber || "",
-      email:   c.mail || "",
+      lotacao,
+      ramal,
+      email,
       cargo:   c.title || "",
       foto:    c.foto || null,
     };
