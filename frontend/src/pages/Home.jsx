@@ -12,29 +12,14 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [unidade, setUnidade] = useState("Selecionar Unidade");
   const [currentPage, setCurrentPage] = useState(1);
-  const [ramaisMap, setRamaisMap] = useState({});
+  const [siglasMap, setSiglasMap] = useState({});
   const theme = useTheme();
 
-  // Carrega colaboradores_update.json e monta mapa nome -> dados
   useEffect(() => {
-    fetch("/colaboradores_update.json")
+    fetch("/siglas_departamentos.json")
       .then(res => res.json())
-      .then(data => {
-        const map = {};
-        for (const entry of data) {
-          const nome = (entry.nome || "").trim().toUpperCase();
-          if (nome) {
-            map[nome] = {
-              ramal:     entry.ramal || "",
-              email:     entry.email || "",
-              lotacao:   entry.lotacao || "",
-              pendencia: entry.pendencia || "",
-            };
-          }
-        }
-        setRamaisMap(map);
-      })
-      .catch(() => console.warn("Não foi possível carregar colaboradores_update.json"));
+      .then(data => setSiglasMap(data))
+      .catch(() => console.warn("Não foi possível carregar siglas_departamentos.json"));
   }, []);
 
   useEffect(() => {
@@ -51,15 +36,21 @@ export default function Home() {
   }, []);
 
   const availableUnidades = useMemo(() => {
-    // Puxa as unidades dinâmicas da lotação (department) ou OU
+    // Puxa as siglas da lotação (department) ou OU
     const lotacoes = colaboradores
-      .map(c => c.department || c.ou || "")
+      .map(c => {
+         const rawDept = (c.department || "").trim();
+         const rawOu = (c.ou || "").trim();
+         // Busca a sigla usando o nome completo (lotação). Se não achar, usa a unidade ou a lotação original
+         const nomeDeptUpper = rawDept.toUpperCase();
+         return siglasMap[nomeDeptUpper] || rawOu || rawDept;
+      })
       .map(d => d.trim())
       .filter(d => d !== "");
     // Remove duplicatas e ordena alfabeticamente
     const unique = [...new Set(lotacoes)].sort();
     return ["Selecionar Unidade", ...unique];
-  }, [colaboradores]);
+  }, [colaboradores, siglasMap]);
 
   const filtered = useMemo(() => {
     const removeAcentos = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -72,10 +63,15 @@ export default function Home() {
       
       const matchSearch = nomeNormalizado.includes(searchNormalizado);
       
+      const rawDept = (c.department || "").trim();
+      const rawOu = (c.ou || "").trim();
+      const nomeDeptUpper = rawDept.toUpperCase();
+      const siglaUnidade = siglasMap[nomeDeptUpper] || rawOu || rawDept;
+
       const matchUnidade =
         unidade === "Selecionar Unidade" ||
-        (c.department || "").includes(unidade) ||
-        (c.ou || "").includes(unidade);
+        siglaUnidade.includes(unidade) ||
+        rawDept.includes(unidade);
         
       return matchSearch && matchUnidade;
     });
@@ -106,28 +102,30 @@ export default function Home() {
    * Normaliza dados do colaborador para exibição.
    *
    * HIERARQUIA DE DADOS (prioridade):
-   *   1º  LDAP (fonte primária — sempre prevalece)
-   *   2º  colaboradores_update.json (fallback — futuro banco de dados)
+   *   1º LDAP (sempre prevalece)
+   *   2º Painel Admin (modificações feitas por admins sobrescrevem/complementam o LDAP)
    */
   function normalizarColaborador(c, index) {
     const nome = c.displayName || c.cn || "Sem nome";
-    const nomeUpper = nome.trim().toUpperCase();
-    const jsonData = ramaisMap[nomeUpper] || {};
 
-    // Ramal: 1º LDAP (curto) -> 2º JSON
+    // Ramal: LDAP (curto)
     let ramal = extrairRamalCurto(c.telephoneNumber);
-    if (!ramal) ramal = jsonData.ramal || "";
 
-    // Email: 1º LDAP -> 2º JSON
-    const email = c.mail || jsonData.email || "";
+    // Email: LDAP
+    const email = c.mail || "";
 
-    // Lotação: 1º LDAP (department) -> 2º JSON
-    const lotacao = c.department || jsonData.lotacao || "";
+    // Lotação é o nome completo que vem no department (agora forçado para maiúsculas)
+    const lotacao = (c.department || "").trim().toUpperCase();
+    const rawOu = (c.ou || "").trim();
+
+    // A Unidade é a sigla, que tentamos achar no JSON usando o nome da lotação
+    const nomeDeptUpper = lotacao.toUpperCase();
+    const unidade = siglasMap[nomeDeptUpper] || rawOu || "";
 
     return {
       id:      c.sAMAccountName || c.dn || index,
       nome,
-      unidade: c.ou || "",
+      unidade,
       lotacao,
       ramal,
       email,
