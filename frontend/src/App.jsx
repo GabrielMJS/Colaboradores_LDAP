@@ -7,6 +7,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Assinaturas from "./pages/Assinaturas";
 import Admin from "./pages/Admin";
+import Aniversariantes from "./pages/Aniversariantes";
 
 export default function App() {
   return (
@@ -19,6 +20,11 @@ export default function App() {
             <Route path="/assinaturas" element={
               <ProtectedRoute>
                 <Assinaturas />
+              </ProtectedRoute>
+            } />
+            <Route path="/aniversariantes" element={
+              <ProtectedRoute>
+                <Aniversariantes />
               </ProtectedRoute>
             } />
             <Route path="/admin" element={

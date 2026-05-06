@@ -97,6 +97,7 @@ function AbaUsuarios() {
       cargo:   c.title || "",
       unidade: c.ou || "",
       visivel: c.visivel !== false,
+      data_aniversario: c.data_aniversario || "",
     });
   }
 
@@ -117,6 +118,7 @@ function AbaUsuarios() {
           title: form.cargo,
           ou: form.unidade,
           visivel: form.visivel,
+          data_aniversario: form.data_aniversario,
           _overrides: { ...c._overrides, ...form },
         };
       }));
@@ -313,6 +315,15 @@ function AbaUsuarios() {
                         type="text" value={form.unidade}
                         onChange={e => setForm(f => ({ ...f, unidade: e.target.value }))}
                         placeholder="Ex: CTI"
+                        style={inputStyle(theme)}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle(theme)}>Data de Aniversário</label>
+                      <input
+                        type="text" value={form.data_aniversario}
+                        onChange={e => setForm(f => ({ ...f, data_aniversario: e.target.value }))}
+                        placeholder="Ex: 15/04/2026"
                         style={inputStyle(theme)}
                       />
                     </div>

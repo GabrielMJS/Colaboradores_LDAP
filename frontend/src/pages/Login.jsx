@@ -54,6 +54,7 @@ export default function Login() {
     setLoading(false);
     if (result.ok) {
       if (result.isAdmin) navigate("/admin");
+      else if (result.isAniversariantes) navigate("/aniversariantes");
       else navigate("/assinaturas");
     }
   }

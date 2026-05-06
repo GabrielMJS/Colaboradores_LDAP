@@ -70,8 +70,7 @@ export default function Home() {
 
       const matchUnidade =
         unidade === "Selecionar Unidade" ||
-        siglaUnidade.includes(unidade) ||
-        rawDept.includes(unidade);
+        siglaUnidade === unidade;
         
       return matchSearch && matchUnidade;
     });

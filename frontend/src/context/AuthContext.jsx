@@ -23,9 +23,10 @@ export function AuthProvider({ children }) {
     try {
       const res = await loginLDAP(username, password);
       if (res.status === "ok") {
-        setUser({ ...res.user, isAdmin: false });
+        const isAniv = res.user.username === "aniversariantes.aeb";
+        setUser({ ...res.user, isAdmin: false, isAniversariantes: isAniv });
         setError("");
-        return { ok: true, isAdmin: false };
+        return { ok: true, isAdmin: false, isAniversariantes: isAniv };
       } else {
         setError(res.message || "Usuário ou senha inválidos.");
         return { ok: false };

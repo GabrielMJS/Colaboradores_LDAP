@@ -62,3 +62,13 @@ export async function loginLDAP(username, password) {
   if (!res.ok) throw new Error("Erro de comunicação com o servidor");
   return res.json();
 }
+
+// ------------------------------------------------------------------
+// Aniversariantes
+// ------------------------------------------------------------------
+export async function fetchAniversariantes(meses = "") {
+  const res = await fetch(`${BASE_URL}/api/aniversariantes?meses=${meses}`);
+  if (!res.ok) throw new Error("Erro ao buscar aniversariantes");
+  const json = await res.json();
+  return json.data || [];
+}
