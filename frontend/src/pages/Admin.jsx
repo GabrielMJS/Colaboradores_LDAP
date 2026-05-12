@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import Avatar from "../components/Avatar";
 import { fetchColaboradoresAdmin, saveOverride, deleteOverride } from "../services/api";
 
 
@@ -194,14 +195,11 @@ function AbaUsuarios() {
                 alignItems: "center", gap: 16, padding: "12px 18px",
               }}>
                 {/* Avatar */}
-                <div style={{
-                  width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
-                  background: theme.isDark ? "linear-gradient(135deg,#1a2a4a,#0d1b35)" : "linear-gradient(135deg,#dce8f8,#c5d8f0)",
-                  border: `2px solid ${theme.isDark ? "rgba(255,255,255,0.1)" : "rgba(0,80,200,0.15)"}`,
-                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
-                }}>
-                  {c.foto ? <img src={c.foto} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : "👤"}
-                </div>
+                <Avatar 
+                  foto={c.foto} 
+                  nome={c.displayName || username} 
+                  size={40} 
+                />
 
                 {/* Nome + login */}
                 <div>
@@ -447,11 +445,12 @@ function AbaAssinatura() {
   const [canvasEl, setCanvasEl] = useState(null);
   const [colaboradores, setColaboradores] = useState([]);
   const [colaboradorId, setColaboradorId] = useState("");
-  const [capaId, setCapaId] = useState("");
+  const [capaId, setCapaId] = useState("3");
   const [form, setForm] = useState({ nome: "", cargo: "", lotacao: "", ramal: "", email: "" });
   const [preview, setPreview] = useState(null);
   const [capaDropdownOpen, setCapaDropdownOpen] = useState(false);
   const [colabDropdownOpen, setColabDropdownOpen] = useState(false);
+  const [filtroColab, setFiltroColab] = useState("");
 
   useEffect(() => {
     fetchColaboradoresAdmin().then(setColaboradores).catch(() => setColaboradores([]));
@@ -601,10 +600,24 @@ function AbaAssinatura() {
                   position: "absolute", top: "calc(100% + 4px)", left: 0, width: "100%",
                   background: theme.dropdownBg || (theme.isDark ? "#1a2a4a" : "#fff"),
                   border: `1px solid ${theme.dropdownBorder || theme.inputBorder}`,
-                  borderRadius: 8, maxHeight: 250, overflowY: "auto", zIndex: 200, boxShadow: "0 16px 48px rgba(0,0,0,0.3)"
+                  borderRadius: 8, maxHeight: 300, overflowY: "auto", zIndex: 200, boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
+                  display: "flex", flexDirection: "column"
                 }}>
+                  {/* Campo de Busca Interno */}
+                  <div style={{ position: "sticky", top: 0, background: theme.dropdownBg || (theme.isDark ? "#1a2a4a" : "#fff"), padding: 8, borderBottom: theme.rowBorder, zIndex: 1 }}>
+                    <input 
+                      autoFocus
+                      type="text" 
+                      placeholder="Pesquisar colaborador..."
+                      value={filtroColab}
+                      onChange={e => setFiltroColab(e.target.value)}
+                      style={{ ...inputStyle(theme), fontSize: 12, padding: "6px 10px" }}
+                      onClick={e => e.stopPropagation()} 
+                    />
+                  </div>
+
                   <div
-                    onClick={() => { setColaboradorId(""); setColabDropdownOpen(false); }}
+                    onClick={() => { setColaboradorId(""); setColabDropdownOpen(false); setFiltroColab(""); }}
                     style={{
                       padding: "9px 16px", fontSize: 13, cursor: "pointer",
                       color: !colaboradorId ? theme.textAccent : theme.textSecondary,
@@ -616,21 +629,36 @@ function AbaAssinatura() {
                   >
                     Preencher manualmente...
                   </div>
-                  {colaboradores.map(c => (
-                    <div
-                      key={c.sAMAccountName}
-                      onClick={() => { setColaboradorId(c.sAMAccountName); setColabDropdownOpen(false); }}
-                      style={{
-                        padding: "9px 16px", fontSize: 13, cursor: "pointer",
-                        color: c.sAMAccountName === colaboradorId ? theme.textAccent : theme.textSecondary,
-                        background: c.sAMAccountName === colaboradorId ? (theme.dropdownSelected || (theme.isDark ? "rgba(100,150,255,0.1)" : "rgba(0,100,255,0.05)")) : "transparent",
-                      }}
-                      onMouseEnter={e => { if (c.sAMAccountName !== colaboradorId) e.currentTarget.style.background = theme.dropdownHover || (theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"); }}
-                      onMouseLeave={e => { if (c.sAMAccountName !== colaboradorId) e.currentTarget.style.background = "transparent"; }}
-                    >
-                      {c.displayName || c.sAMAccountName}
+
+                  {colaboradores
+                    .filter(c => 
+                      (c.displayName || "").toLowerCase().includes(filtroColab.toLowerCase()) || 
+                      (c.sAMAccountName || "").toLowerCase().includes(filtroColab.toLowerCase())
+                    )
+                    .map(c => (
+                      <div
+                        key={c.sAMAccountName}
+                        onClick={() => { setColaboradorId(c.sAMAccountName); setColabDropdownOpen(false); setFiltroColab(""); }}
+                        style={{
+                          padding: "9px 16px", fontSize: 13, cursor: "pointer",
+                          color: c.sAMAccountName === colaboradorId ? theme.textAccent : theme.textSecondary,
+                          background: c.sAMAccountName === colaboradorId ? (theme.dropdownSelected || (theme.isDark ? "rgba(100,150,255,0.1)" : "rgba(0,100,255,0.05)")) : "transparent",
+                        }}
+                        onMouseEnter={e => { if (c.sAMAccountName !== colaboradorId) e.currentTarget.style.background = theme.dropdownHover || (theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"); }}
+                        onMouseLeave={e => { if (c.sAMAccountName !== colaboradorId) e.currentTarget.style.background = "transparent"; }}
+                      >
+                        {c.displayName || c.sAMAccountName}
+                      </div>
+                    ))}
+                  
+                  {colaboradores.filter(c => 
+                    (c.displayName || "").toLowerCase().includes(filtroColab.toLowerCase()) || 
+                    (c.sAMAccountName || "").toLowerCase().includes(filtroColab.toLowerCase())
+                  ).length === 0 && (
+                    <div style={{ padding: "16px", fontSize: 12, color: theme.textMuted, textAlign: "center" }}>
+                      Nenhum resultado encontrado
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
@@ -733,44 +761,7 @@ function AbaAssinatura() {
 // -------------------------------------------------------------------
 // Aba: Logs
 // -------------------------------------------------------------------
-function AbaLogs() {
-  const theme = useTheme();
-  const logs = [
-    { id: 1, usuario: "gabriel.silva",   nome: "Gabriel Silva",          capa: "Padrão Espacial", data: "2024-06-10 09:14" },
-    { id: 2, usuario: "ana.paula",       nome: "Ana Paula Ferreira",     capa: "Satélite",        data: "2024-06-10 10:02" },
-    { id: 3, usuario: "carlos.monteiro", nome: "Carlos Monteiro",        capa: "Lançador",        data: "2024-06-11 08:45" },
-    { id: 4, usuario: "fernanda.lima",   nome: "Fernanda Lima Carvalho", capa: "Padrão Espacial", data: "2024-06-11 14:30" },
-  ];
-  const [filtro, setFiltro] = useState("");
-  const filtrados = logs.filter(l => l.nome.toLowerCase().includes(filtro.toLowerCase()) || l.usuario.toLowerCase().includes(filtro.toLowerCase()));
 
-  return (
-    <div>
-      <SectionTitle>📋 Logs de Assinaturas Geradas</SectionTitle>
-      <div style={{ position: "relative", marginBottom: 20 }}>
-        <input type="text" placeholder="Buscar..." value={filtro} onChange={e => setFiltro(e.target.value)} style={{ ...inputStyle(theme), width: 300, paddingRight: 36 }} />
-        <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted }}>🔍</span>
-      </div>
-      <div style={{ background: theme.tableBg, border: theme.tableBorder, borderRadius: 10, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 140px", gap: 16, padding: "10px 18px", background: theme.tableHeaderBg, borderBottom: theme.rowBorder }}>
-          {["USUÁRIO", "NOME", "CAPA USADA", "DATA/HORA"].map(h => (
-            <div key={h} style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: "0.12em", color: theme.tableHeaderColor }}>{h}</div>
-          ))}
-        </div>
-        {filtrados.map(log => (
-          <div key={log.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 140px", gap: 16, padding: "12px 18px", borderBottom: theme.rowBorder }}
-            onMouseEnter={e => e.currentTarget.style.background = theme.rowHover}
-            onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textAccent }}>{log.usuario}</div>
-            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textPrimary }}>{log.nome}</div>
-            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textSecondary }}>{log.capa}</div>
-            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: theme.textMuted }}>{log.data}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // -------------------------------------------------------------------
 // Página Admin principal
@@ -785,7 +776,6 @@ export default function Admin() {
     { id: "usuarios",   label: "👥 Usuários"   },
     { id: "assinatura", label: "✍ Assinatura"  },
     { id: "capas",      label: "🖼 Capas"       },
-    { id: "logs",       label: "📋 Logs"        },
   ];
 
   return (
@@ -799,56 +789,65 @@ export default function Admin() {
         position: "sticky", top: 0, zIndex: 100,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <button onClick={() => navigate("/")} style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, color: theme.textSecondary, padding: "6px 12px", fontSize: 12, cursor: "pointer", fontFamily: "'Inter', sans-serif" }}
-            onMouseEnter={e => e.currentTarget.style.background = theme.rowHover}
-            onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-            ← Início
+          <button onClick={() => navigate("/")} style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, color: theme.textSecondary, padding: "6px 12px", fontSize: 12, cursor: "pointer", fontFamily: "'Inter', sans-serif" }}>
+            ← Voltar
           </button>
-          <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 18, color: theme.textPrimary, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            🛰 AEB
-            <span style={{ marginLeft: 12, paddingLeft: 12, borderLeft: `1px solid ${theme.isDark ? "rgba(255,255,255,0.1)" : "rgba(0,60,160,0.15)"}`, fontWeight: 600, fontSize: 16, color: theme.textAccent }}>
-              Painel Admin
-            </span>
-          </div>
+          <div style={{ width: 1, height: 24, background: theme.headerBorder }} />
+          <h1 style={{
+            fontSize: 18, fontWeight: 700, color: theme.textPrimary,
+            letterSpacing: "-0.02em", margin: 0,
+          }}>
+            Painel <span style={{ color: theme.textAccent }}>Administrativo</span>
+          </h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'Inter', sans-serif" }}>👤 {user?.displayName || user?.username}</span>
-          <button onClick={theme.toggleTheme} style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 18, transition: "transform 0.2s" }}
-            onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
-            onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}>
-            {theme.isDark ? "☀️" : "🌙"}
-          </button>
-          <button onClick={() => { logout(); navigate("/login"); }} style={{ background: "rgba(198,40,40,0.1)", border: "1px solid rgba(198,40,40,0.3)", borderRadius: 6, color: "#ef9a9a", padding: "7px 14px", fontSize: 12, fontFamily: "'Inter', sans-serif", fontWeight: 600, letterSpacing: "0.06em", cursor: "pointer" }}
-            onMouseEnter={e => e.currentTarget.style.background = "rgba(198,40,40,0.2)"}
-            onMouseLeave={e => e.currentTarget.style.background = "rgba(198,40,40,0.1)"}>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: theme.textPrimary }}>{user?.nome || "Admin"}</div>
+            <div style={{ fontSize: 11, color: theme.textMuted }}>{user?.username || "admin"}</div>
+          </div>
+          <button
+            onClick={logout}
+            style={{
+              background: theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
+              border: "none", borderRadius: 8, color: theme.textPrimary,
+              padding: "8px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+            }}
+          >
             Sair
           </button>
         </div>
       </header>
 
-      <main style={{ padding: "32px", maxWidth: 1100, margin: "0 auto" }}>
-        {/* Abas */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 28, borderBottom: `1px solid ${theme.isDark ? "rgba(100,150,255,0.1)" : "rgba(0,60,160,0.1)"}` }}>
+      <main style={{ padding: "32px", maxWidth: 1200, margin: "0 auto" }}>
+        {/* Tabs */}
+        <div style={{
+          display: "flex", gap: 8, marginBottom: 32,
+          background: theme.tableBg, padding: 6, borderRadius: 12,
+          border: theme.tableBorder, width: "fit-content",
+        }}>
           {abas.map(aba => (
-            <button key={aba.id} onClick={() => setAbaAtiva(aba.id)} style={{
-              background: "transparent", border: "none",
-              borderBottom: abaAtiva === aba.id ? `2px solid ${theme.textAccent}` : "2px solid transparent",
-              borderRadius: 0, color: abaAtiva === aba.id ? theme.textAccent : theme.textMuted,
-              padding: "10px 20px", fontSize: 13,
-              fontFamily: "'Inter', sans-serif", fontWeight: 600,
-              letterSpacing: "0.08em", textTransform: "uppercase",
-              cursor: "pointer", transition: "color 0.2s, border-color 0.2s", marginBottom: -1,
-            }}>
+            <button
+              key={aba.id}
+              onClick={() => setAbaAtiva(aba.id)}
+              style={{
+                padding: "10px 20px", borderRadius: 8, border: "none",
+                fontSize: 13, fontWeight: 600, cursor: "pointer",
+                fontFamily: "'Inter', sans-serif", transition: "all 0.2s",
+                background: abaAtiva === aba.id ? (theme.isDark ? "#1565c0" : "#e3f2fd") : "transparent",
+                color: abaAtiva === aba.id ? (theme.isDark ? "#fff" : "#1565c0") : theme.textSecondary,
+              }}
+            >
               {aba.label}
             </button>
           ))}
         </div>
 
-        <div style={{ animation: "fadeIn 0.25s ease" }} key={abaAtiva}>
+        {/* Conteúdo */}
+        <div style={{ animation: "fadeIn 0.4s ease-out" }}>
           {abaAtiva === "usuarios"   && <AbaUsuarios />}
           {abaAtiva === "assinatura" && <AbaAssinatura />}
           {abaAtiva === "capas"      && <AbaCapas />}
-          {abaAtiva === "logs"       && <AbaLogs />}
         </div>
       </main>
     </div>

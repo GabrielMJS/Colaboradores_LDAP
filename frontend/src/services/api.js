@@ -1,4 +1,17 @@
 const BASE_URL = "http://localhost:8000";
+const IS_PRODUCTION = false; // Ajustar se necessário
+
+function getHeaders() {
+  const headers = { "Content-Type": "application/json" };
+  const saved = localStorage.getItem("aeb_user");
+  if (saved) {
+    const { token } = JSON.parse(saved);
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+  return headers;
+}
 
 // ------------------------------------------------------------------
 // Colaboradores — página inicial (ocultos filtrados)
@@ -7,7 +20,7 @@ export async function fetchColaboradores(unidade = null) {
   const url = unidade
     ? `${BASE_URL}/api/colaboradores?unidade=${encodeURIComponent(unidade)}`
     : `${BASE_URL}/api/colaboradores`;
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: getHeaders() });
   if (!res.ok) throw new Error("Erro ao buscar colaboradores");
   const json = await res.json();
   return json.data || [];
@@ -20,7 +33,7 @@ export async function fetchColaboradoresAdmin(unidade = null) {
   const url = unidade
     ? `${BASE_URL}/api/admin/colaboradores?unidade=${encodeURIComponent(unidade)}`
     : `${BASE_URL}/api/admin/colaboradores`;
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: getHeaders() });
   if (!res.ok) throw new Error("Erro ao buscar colaboradores (admin)");
   const json = await res.json();
   return json.data || [];
@@ -32,7 +45,7 @@ export async function fetchColaboradoresAdmin(unidade = null) {
 export async function saveOverride(username, fields) {
   const res = await fetch(`${BASE_URL}/api/admin/colaboradores/${username}/override`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: getHeaders(),
     body: JSON.stringify(fields),
   });
   if (!res.ok) throw new Error("Erro ao salvar customizações");
@@ -45,6 +58,7 @@ export async function saveOverride(username, fields) {
 export async function deleteOverride(username) {
   const res = await fetch(`${BASE_URL}/api/admin/colaboradores/${username}/override`, {
     method: "DELETE",
+    headers: getHeaders(),
   });
   if (!res.ok) throw new Error("Erro ao remover customizações");
   return res.json();
@@ -67,8 +81,11 @@ export async function loginLDAP(username, password) {
 // Aniversariantes
 // ------------------------------------------------------------------
 export async function fetchAniversariantes(meses = "") {
-  const res = await fetch(`${BASE_URL}/api/aniversariantes?meses=${meses}`);
+  const res = await fetch(`${BASE_URL}/api/aniversariantes?meses=${meses}`, { 
+    headers: getHeaders() 
+  });
   if (!res.ok) throw new Error("Erro ao buscar aniversariantes");
   const json = await res.json();
   return json.data || [];
 }
+

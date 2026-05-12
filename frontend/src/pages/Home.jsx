@@ -12,15 +12,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [unidade, setUnidade] = useState("Selecionar Unidade");
   const [currentPage, setCurrentPage] = useState(1);
-  const [siglasMap, setSiglasMap] = useState({});
   const theme = useTheme();
-
-  useEffect(() => {
-    fetch("/siglas_departamentos.json")
-      .then(res => res.json())
-      .then(data => setSiglasMap(data))
-      .catch(() => console.warn("Não foi possível carregar siglas_departamentos.json"));
-  }, []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -36,21 +28,13 @@ export default function Home() {
   }, []);
 
   const availableUnidades = useMemo(() => {
-    // Puxa as siglas da lotação (department) ou OU
     const lotacoes = colaboradores
-      .map(c => {
-         const rawDept = (c.department || "").trim();
-         const rawOu = (c.ou || "").trim();
-         // Busca a sigla usando o nome completo (lotação). Se não achar, usa a unidade ou a lotação original
-         const nomeDeptUpper = rawDept.toUpperCase();
-         return siglasMap[nomeDeptUpper] || rawOu || rawDept;
-      })
-      .map(d => d.trim())
+      .map(c => (c.ou || c.department || "").trim())
       .filter(d => d !== "");
     // Remove duplicatas e ordena alfabeticamente
     const unique = [...new Set(lotacoes)].sort();
     return ["Selecionar Unidade", ...unique];
-  }, [colaboradores, siglasMap]);
+  }, [colaboradores]);
 
   const filtered = useMemo(() => {
     const removeAcentos = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -63,10 +47,7 @@ export default function Home() {
       
       const matchSearch = nomeNormalizado.includes(searchNormalizado);
       
-      const rawDept = (c.department || "").trim();
-      const rawOu = (c.ou || "").trim();
-      const nomeDeptUpper = rawDept.toUpperCase();
-      const siglaUnidade = siglasMap[nomeDeptUpper] || rawOu || rawDept;
+      const siglaUnidade = (c.ou || c.department || "").trim();
 
       const matchUnidade =
         unidade === "Selecionar Unidade" ||
@@ -115,11 +96,7 @@ export default function Home() {
 
     // Lotação é o nome completo que vem no department (agora forçado para maiúsculas)
     const lotacao = (c.department || "").trim().toUpperCase();
-    const rawOu = (c.ou || "").trim();
-
-    // A Unidade é a sigla, que tentamos achar no JSON usando o nome da lotação
-    const nomeDeptUpper = lotacao.toUpperCase();
-    const unidade = siglasMap[nomeDeptUpper] || rawOu || "";
+    const unidade = (c.ou || c.department || "").trim();
 
     return {
       id:      c.sAMAccountName || c.dn || index,

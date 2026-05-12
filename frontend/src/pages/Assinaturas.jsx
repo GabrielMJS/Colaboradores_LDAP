@@ -72,25 +72,25 @@ export default function Assinaturas() {
       const fontAeb = Math.round(canvas.height * 0.098);
 
       // Nome
-      ctx.font = `bold ${fontNome}px 'Times New Roman', Times, serif`;
+      ctx.font = `bold ${fontNome}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(colaborador.nome, textX, currentY);
       currentY += lineSpacing;
 
       // Cargo (Suporte CTI)
-      ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
+      ctx.font = `${fontMedia}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(colaborador.cargo, textX, currentY);
       currentY += lineSpacing - (canvas.height * 0.01);
 
       // Lotação (Coordenação de Tecnologia da Informação)
-      ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
+      ctx.font = `${fontMedia}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(colaborador.lotacao, textX, currentY);
       currentY += lineSpacing + (canvas.height * 0.02); // Espaço extra
 
       // Agência Espacial Brasileira
-      ctx.font = `bold ${fontAeb}px 'Times New Roman', Times, serif`;
+      ctx.font = `bold ${fontAeb}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText("Agência Espacial Brasileira", textX, currentY);
       currentY += lineSpacing;
@@ -101,7 +101,7 @@ export default function Assinaturas() {
       const ramalFormatado = `(61) 2033-${digitosFinais || "XXXX"}`;
 
       // Ramal e email
-      ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
+      ctx.font = `${fontMedia}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(`${ramalFormatado}    ${email}`, textX, currentY);
 
@@ -124,7 +124,7 @@ export default function Assinaturas() {
       // Logo placeholder
       ctx.fillStyle = "#1565c0";
       ctx.fillRect(20, 30, 140, 110);
-      ctx.font = "bold 28px Arial";
+      ctx.font = "bold 28px Verdana, sans-serif";
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText("AEB", 60, 95);
 
@@ -141,15 +141,15 @@ export default function Assinaturas() {
       const startY = 45;
       const lineH = 22;
 
-      ctx.font = "bold 18px Arial";
+      ctx.font = "bold 18px Verdana, sans-serif";
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(colaborador.nome, textX, startY);
 
-      ctx.font = "13px Arial";
+      ctx.font = "13px Verdana, sans-serif";
       ctx.fillStyle = "#90caf9";
       ctx.fillText(colaborador.cargo, textX, startY + lineH);
 
-      ctx.font = "13px Arial";
+      ctx.font = "13px Verdana, sans-serif";
       ctx.fillStyle = "#CCDDEE";
 
       // Quebra texto longo da lotação
@@ -158,18 +158,18 @@ export default function Assinaturas() {
         const mid = lotacao.lastIndexOf(" ", 45);
         ctx.fillText(lotacao.substring(0, mid), textX, startY + lineH * 2);
         ctx.fillText(lotacao.substring(mid + 1), textX, startY + lineH * 3 - 4);
-        ctx.font = "bold 14px Arial";
+        ctx.font = "bold 14px Verdana, sans-serif";
         ctx.fillStyle = "#FFFFFF";
         ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 4 - 4);
-        ctx.font = "13px Arial";
+        ctx.font = "13px Verdana, sans-serif";
         ctx.fillStyle = "#CCDDEE";
         ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 5 - 4);
       } else {
         ctx.fillText(lotacao, textX, startY + lineH * 2);
-        ctx.font = "bold 14px Arial";
+        ctx.font = "bold 14px Verdana, sans-serif";
         ctx.fillStyle = "#FFFFFF";
         ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 3);
-        ctx.font = "13px Arial";
+        ctx.font = "13px Verdana, sans-serif";
         ctx.fillStyle = "#CCDDEE";
         ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 4);
       }

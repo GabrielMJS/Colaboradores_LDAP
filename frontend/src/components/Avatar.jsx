@@ -1,7 +1,16 @@
 import { useTheme } from "../context/ThemeContext";
 
 export default function Avatar({ foto, nome, size = 52 }) {
-  const { avatarBg, avatarBorder } = useTheme();
+  const theme = useTheme();
+  const { avatarBg, avatarBorder } = theme;
+
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const parts = name.trim().split(/[\s.]+/);
+    if (parts.length === 0) return "?";
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  };
 
   return (
     <div style={{
@@ -15,16 +24,20 @@ export default function Avatar({ foto, nome, size = 52 }) {
       alignItems: "center",
       justifyContent: "center",
       flexShrink: 0,
+      userSelect: "none",
     }}>
       {foto ? (
         <img src={foto} alt={nome} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       ) : (
-        <svg width={size * 0.7} height={size * 0.7} viewBox="0 0 48 48" fill="none">
-          <circle cx="24" cy="24" r="22" stroke="rgba(100,140,200,0.3)" strokeWidth="2" />
-          <line x1="8" y1="8" x2="40" y2="40" stroke="rgba(100,140,200,0.3)" strokeWidth="2" />
-          <circle cx="24" cy="18" r="7" fill="rgba(100,140,200,0.2)" />
-          <path d="M10 38 Q24 28 38 38" fill="rgba(100,140,200,0.2)" />
-        </svg>
+        <span style={{
+          fontSize: size * 0.4,
+          fontWeight: 600,
+          color: theme.isDark ? "#90caf9" : "#1565c0",
+          fontFamily: "'Inter', sans-serif",
+          letterSpacing: "0.02em",
+        }}>
+          {getInitials(nome)}
+        </span>
       )}
     </div>
   );

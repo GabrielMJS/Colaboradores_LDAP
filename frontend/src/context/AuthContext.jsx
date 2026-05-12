@@ -3,35 +3,27 @@ import { loginLDAP } from "../services/api";
 
 const AuthContext = createContext();
 
-// Credenciais fixas do administrador
-const ADMIN_USER = "admin.aeb";
-const ADMIN_PASS = "AEB@admin2024";
-
 export function AuthProvider({ children }) {
-  const [user, setUser]   = useState(null);
+  const [user, setUser]   = useState(() => {
+    const saved = localStorage.getItem("aeb_user");
+    return saved ? JSON.parse(saved) : null;
+  });
   const [error, setError] = useState("");
 
   async function login(username, password) {
-    // Verifica se é o admin fixo
-    if (username === ADMIN_USER && password === ADMIN_PASS) {
-      setUser({ username, displayName: "Administrador AEB", isAdmin: true });
-      setError("");
-      return { ok: true, isAdmin: true };
-    }
-
-    // Login normal via LDAP
     try {
       const res = await loginLDAP(username, password);
       if (res.status === "ok") {
-        const isAniv = res.user.username === "aniversariantes.aeb";
-        setUser({ ...res.user, isAdmin: false, isAniversariantes: isAniv });
+        const userData = { ...res.user, token: res.token };
+        setUser(userData);
+        localStorage.setItem("aeb_user", JSON.stringify(userData));
         setError("");
-        return { ok: true, isAdmin: false, isAniversariantes: isAniv };
+        return { ok: true, isAdmin: userData.isAdmin, isAniversariantes: userData.isAniversariantes };
       } else {
         setError(res.message || "Usuário ou senha inválidos.");
         return { ok: false };
       }
-    } catch {
+    } catch (e) {
       setError("Não foi possível conectar ao servidor. Tente novamente.");
       return { ok: false };
     }
@@ -39,6 +31,7 @@ export function AuthProvider({ children }) {
 
   function logout() {
     setUser(null);
+    localStorage.removeItem("aeb_user");
   }
 
   return (
