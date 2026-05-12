@@ -37,7 +37,7 @@ def get_override(username: str) -> dict:
 def save_override(username: str, fields: dict):
     """
     Salva/atualiza campos customizados de um colaborador.
-    Campos aceitos: ramal, cargo, unidade, visivel
+    Campos aceitos: ramal, cargo, unidade, visivel, data_aniversario
     """
     data = _load()
     if username not in data:
@@ -54,10 +54,10 @@ def delete_override(username: str):
         _save(data)
 
 
-def apply_overrides(colaboradores: list) -> list:
+def apply_overrides(colaboradores: list, filter_hidden: bool = True) -> list:
     """
     Mescla a lista do LDAP com as customizações salvas.
-    Filtra colaboradores com visivel=False.
+    Por padrão, filtra colaboradores com visivel=False para a Home.
     """
     overrides = _load()
     result = []
@@ -72,12 +72,17 @@ def apply_overrides(colaboradores: list) -> list:
             c["title"] = ov["cargo"]
         if "unidade" in ov:
             c["ou"] = ov["unidade"]
+        if "data_aniversario" in ov:
+            c["data_aniversario"] = ov["data_aniversario"]
 
         # Adiciona flag de override para o frontend saber o que foi editado
         c["_overrides"] = ov
+        
+        # Define a visibilidade (padrão True se não houver override)
+        c["visivel"] = ov.get("visivel", True)
 
-        # Filtra se admin ocultou o colaborador
-        if ov.get("visivel") is False:
+        # Filtra se solicitado e se o admin ocultou o colaborador
+        if filter_hidden and c["visivel"] is False:
             continue
 
         result.append(c)

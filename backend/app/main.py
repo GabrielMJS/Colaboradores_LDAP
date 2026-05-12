@@ -9,6 +9,7 @@ from overrides_service import (
     delete_override,
     apply_overrides,
 )
+from aniversariantes_service import apply_aniversariantes_data, normalize_departments
 from typing import Optional
 
 load_dotenv()
@@ -32,6 +33,7 @@ class OverrideRequest(BaseModel):
     cargo:   Optional[str]  = None
     unidade: Optional[str]  = None
     visivel: Optional[bool] = None
+    data_aniversario: Optional[str] = None
 
 @app.get("/health")
 def health_check():
@@ -53,8 +55,32 @@ def get_colaboradores(unidade: Optional[str] = Query(default=None)):
     try:
         service = LDAPService()
         colaboradores = service.search_all_users(unidade=unidade)
-        colaboradores = apply_overrides(colaboradores)
-        return {"status": "ok", "total": len(colaboradores), "data": colaboradores}
+        # 1. Aplica overrides mas sem filtrar agora (queremos decidir visibilidade depois do CSV)
+        colaboradores = apply_overrides(colaboradores, filter_hidden=False)
+        # 2. Cruza com CSV (marca _in_csv)
+        colaboradores = apply_aniversariantes_data(colaboradores)
+        # 3. Normaliza nomes de departamentos
+        colaboradores = normalize_departments(colaboradores)
+        
+        # 4. Lógica Final de Visibilidade para a Home:
+        # - Se o admin definiu 'visivel' (True ou False), respeitamos o admin.
+        # - Se o admin NÃO definiu nada, a visibilidade depende de estar no CSV.
+        home_list = []
+        for c in colaboradores:
+            ov = c.get("_overrides", {})
+            visibilidade_admin = ov.get("visivel")
+            
+            is_visible = False
+            if visibilidade_admin is not None:
+                is_visible = visibilidade_admin
+            else:
+                # Default: se estiver no CSV aparece, se não fica oculto
+                is_visible = c.get("_in_csv", False)
+            
+            if is_visible:
+                home_list.append(c)
+        
+        return {"status": "ok", "total": len(home_list), "data": home_list}
     except Exception as e:
         return {"status": "error", "message": str(e), "data": []}
 
@@ -64,15 +90,20 @@ def get_colaboradores_admin(unidade: Optional[str] = Query(default=None)):
     try:
         service = LDAPService()
         colaboradores = service.search_all_users(unidade=unidade)
-        overrides = get_all_overrides()
+        # No Admin, usamos apply_overrides com filter_hidden=False para ver todo mundo
+        colaboradores = apply_overrides(colaboradores, filter_hidden=False)
+        
+        # Sincroniza a propriedade 'visivel' com a mesma lógica da Home para o Admin saber o estado padrão
+        colaboradores = apply_aniversariantes_data(colaboradores)
+        colaboradores = normalize_departments(colaboradores)
+
         for c in colaboradores:
-            username = c.get("sAMAccountName", "")
-            ov = overrides.get(username, {})
-            if "ramal"   in ov: c["telephoneNumber"] = ov["ramal"]
-            if "cargo"   in ov: c["title"]           = ov["cargo"]
-            if "unidade" in ov: c["ou"]              = ov["unidade"]
-            c["_overrides"] = ov
-            c["visivel"] = ov.get("visivel", True)
+            ov = c.get("_overrides", {})
+            if ov.get("visivel") is None:
+                # Se não tem override, o valor que aparece no toggle 'Visível' do Admin 
+                # deve refletir se ele está ou não no CSV
+                c["visivel"] = c.get("_in_csv", False)
+
         return {"status": "ok", "total": len(colaboradores), "data": colaboradores}
     except Exception as e:
         return {"status": "error", "message": str(e), "data": []}
@@ -105,9 +136,51 @@ def ldap_search_user(user_id: str):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@app.get("/api/aniversariantes")
+def get_aniversariantes_list(meses: str = Query(default="")):
+    try:
+        service = LDAPService()
+        colaboradores = service.search_all_users()
+        colaboradores = apply_overrides(colaboradores)
+        colaboradores = apply_aniversariantes_data(colaboradores)
+        colaboradores = normalize_departments(colaboradores)
+
+        meses_list = [m.zfill(2) for m in meses.split(",") if m.strip()]
+        
+        aniversariantes = []
+        for c in colaboradores:
+            data_aniv = c.get("data_aniversario")
+            if data_aniv:
+                parts = data_aniv.split("/")
+                if len(parts) >= 2:
+                    mes = parts[1]
+                    if not meses_list or mes in meses_list:
+                        aniversariantes.append({
+                            "nome": c.get("displayName") or c.get("cn") or "",
+                            "data_aniversario": data_aniv,
+                            "unidade": c.get("ou") or "",
+                            "email": c.get("mail") or ""
+                        })
+        return {"status": "ok", "data": aniversariantes}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "data": []}
+
 @app.post("/auth/login")
 def auth_login(body: LoginRequest):
     try:
+        # Login hardcoded para a página de aniversariantes
+        if body.username == "aniversariantes.aeb" and body.password == "Ani@123aeb":
+            return {
+                "status": "ok",
+                "user": {
+                    "username": "aniversariantes.aeb",
+                    "displayName": "Aniversariantes AEB",
+                    "email": "",
+                    "title": "Acesso Aniversariantes",
+                    "department": "AEB"
+                }
+            }
+
         service = LDAPService()
         user_info = service.search_user(body.username)
         if not user_info:
@@ -115,6 +188,14 @@ def auth_login(body: LoginRequest):
         authenticated = service.authenticate(body.username, body.password)
         if not authenticated:
             return {"status": "error", "message": "Usuário ou senha inválidos."}
+            
+        # Aplica overrides e dados de aniversariantes para ter o department/ou corrigidos
+        user_list = [user_info]
+        user_list = apply_overrides(user_list, filter_hidden=False)
+        user_list = apply_aniversariantes_data(user_list)
+        user_list = normalize_departments(user_list)
+        user_info = user_list[0]
+
         return {
             "status": "ok",
             "user": {
@@ -123,6 +204,7 @@ def auth_login(body: LoginRequest):
                 "email":       user_info.get("mail", ""),
                 "title":       user_info.get("title", ""),
                 "department":  user_info.get("department", ""),
+                "ou":          user_info.get("ou", "")
             }
         }
     except Exception as e:

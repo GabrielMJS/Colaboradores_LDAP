@@ -128,9 +128,6 @@
   "bruno.tocantins": {
     "visivel": false
   },
-  "andre.candido": {
-    "visivel": false
-  },
   "joffre.gomes": {
     "visivel": false
   },
@@ -157,5 +154,15 @@
   },
   "thaynar.santos": {
     "visivel": true
+  },
+  "andre.silva": {
+    "ramal": "",
+    "cargo": "Técnico de Suporte",
+    "unidade": "",
+    "visivel": true,
+    "data_aniversario": ""
+  },
+  "andre.candido": {
+    "visivel": false
   }
 }
