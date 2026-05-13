@@ -67,7 +67,7 @@ export default function Assinaturas() {
       const lineSpacing = canvas.height * 0.14; // Espaço entre linhas
 
       // Tamanhos de fonte proporcionais
-      const fontNome = Math.round(canvas.height * 0.110);
+      const fontNome = Math.round(canvas.height * 0.110) + 2;
       const fontMedia = Math.round(canvas.height * 0.075);
       const fontAeb = Math.round(canvas.height * 0.098);
 
@@ -141,7 +141,7 @@ export default function Assinaturas() {
       const startY = 45;
       const lineH = 22;
 
-      ctx.font = "bold 18px Verdana, sans-serif";
+      ctx.font = "bold 20px Verdana, sans-serif";
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(colaborador.nome, textX, startY);
 
@@ -255,21 +255,23 @@ export default function Assinaturas() {
           </button>
 
           <div style={{
-            fontFamily: "'Inter', sans-serif",
-            fontWeight: 700,
-            fontSize: 18,
-            color: theme.textPrimary,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
+            display: "flex",
+            alignItems: "center",
           }}>
-            🛰 AEB
+            <img 
+              src={theme.isDark ? "/Images/logoBranca.png" : "/Images/logoAzul.png"} 
+              alt="Logo AEB" 
+              style={{ height: 44, width: "auto", objectFit: "contain", marginRight: 12 }}
+            />
             <span style={{
-              marginLeft: 12,
+              fontFamily: "'Inter', sans-serif",
               paddingLeft: 12,
               borderLeft: `1px solid ${theme.rowBorder}`,
               fontWeight: 600,
               fontSize: 16,
               color: theme.textAccent,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
             }}>
               Gerador de Assinaturas
             </span>

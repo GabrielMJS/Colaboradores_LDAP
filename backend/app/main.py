@@ -16,8 +16,10 @@ from typing import Optional
 import threading
 import time
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import shutil
+from pathlib import Path
 
 load_dotenv()
 
@@ -235,6 +237,55 @@ def get_aniversariantes_list(meses: str = Query(default="")):
         return {"status": "ok", "data": aniversariantes}
     except Exception as e:
         return {"status": "error", "message": str(e), "data": []}
+
+CAPAS_DIR = Path(__file__).parent.parent.parent / "frontend" / "public" / "assinatura"
+
+@app.get("/api/capas")
+def get_capas():
+    try:
+        capas = []
+        if CAPAS_DIR.exists():
+            for idx, file_path in enumerate(CAPAS_DIR.glob("*.png"), start=1):
+                capas.append({
+                    "id": idx,
+                    "nome": file_path.name,
+                    "arquivo": f"/assinatura/{file_path.name}",
+                    "ativa": True
+                })
+        return {"status": "ok", "data": capas}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "data": []}
+
+@app.post("/api/admin/capas/upload")
+def upload_capa(file: UploadFile = File(...), _user = Depends(require_admin)):
+    try:
+        if not file.filename.lower().endswith('.png'):
+            return {"status": "error", "message": "Apenas arquivos .png são permitidos."}
+        
+        CAPAS_DIR.mkdir(parents=True, exist_ok=True)
+        file_path = CAPAS_DIR / file.filename
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        return {"status": "ok", "message": f"Arquivo '{file.filename}' importado com sucesso."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.delete("/api/admin/capas/{filename}")
+def delete_capa(filename: str, _user = Depends(require_admin)):
+    try:
+        if ".." in filename or filename.startswith("/") or filename.startswith("\\"):
+            return {"status": "error", "message": "Nome de arquivo inválido."}
+            
+        file_path = CAPAS_DIR / filename
+        if file_path.exists() and file_path.is_file():
+            file_path.unlink()
+            return {"status": "ok", "message": f"Arquivo '{filename}' excluído com sucesso."}
+        else:
+            return {"status": "error", "message": "Arquivo não encontrado."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.post("/auth/login")
 def auth_login(body: LoginRequest):

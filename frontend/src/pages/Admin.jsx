@@ -3,17 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import Avatar from "../components/Avatar";
-import { fetchColaboradoresAdmin, saveOverride, deleteOverride } from "../services/api";
-
-
-// -------------------------------------------------------------------
-// Capas — em produção virá do backend
-// Substituído temporariamente o import.meta.glob para evitar warnings do Vite sobre a pasta /public
-const CAPAS_REAIS = [
-  { id: 1, nome: "Assinatura 30 Anos.png", arquivo: "/assinatura/Assinatura 30 Anos.png", ativa: true },
-  { id: 2, nome: "Assinatura Independência.png", arquivo: "/assinatura/Assinatura Independência.png", ativa: true },
-  { id: 3, nome: "Assinatura Padrão.png", arquivo: "/assinatura/Assinatura Padrão.png", ativa: true }
-];
+import { fetchColaboradoresAdmin, saveOverride, deleteOverride, fetchCapas, uploadCapa, deleteCapa } from "../services/api";
 
 // -------------------------------------------------------------------
 // Helpers
@@ -392,18 +382,69 @@ function AbaUsuarios() {
 // -------------------------------------------------------------------
 function AbaCapas() {
   const theme = useTheme();
-  // As capas são inicializadas com o que existe na pasta física.
-  const [capas, setCapas] = useState(CAPAS_REAIS);
+  const [capas, setCapas] = useState([]);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    carregarCapas();
+  }, []);
+
+  async function carregarCapas() {
+    try {
+      const data = await fetchCapas();
+      setCapas(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await uploadCapa(file);
+      await carregarCapas();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setUploading(false);
+      e.target.value = null;
+    }
+  }
+
+  async function handleDelete(nome) {
+    if (!window.confirm(`Tem certeza que deseja excluir permanentemente o arquivo "${nome}"? Esta ação não pode ser desfeita.`)) return;
+    
+    try {
+      await deleteCapa(nome);
+      await carregarCapas();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
 
   return (
     <div>
       <SectionTitle>🖼 Gerenciar Capas</SectionTitle>
 
-      <div style={{ background: theme.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,60,160,0.03)", border: theme.rowBorder, borderRadius: 10, padding: 20, marginBottom: 24 }}>
-        <p style={{ fontSize: 13, color: theme.textSecondary, fontFamily: "'Inter', sans-serif" }}>
-          As capas listadas abaixo são lidas dinamicamente da pasta <strong>public/assinatura/</strong> no código-fonte. 
-          <br/>Para adicionar ou remover fisicamente uma imagem, faça a alteração diretamente na pasta do projeto.
+      <div style={{ background: theme.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,60,160,0.03)", border: theme.rowBorder, borderRadius: 10, padding: 20, marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <p style={{ fontSize: 13, color: theme.textSecondary, fontFamily: "'Inter', sans-serif", margin: 0 }}>
+          As capas listadas abaixo são lidas dinamicamente do servidor. 
+          <br/>Você pode adicionar novas capas enviando arquivos .png.
         </p>
+        <div>
+          <input type="file" accept=".png" id="upload-capa" style={{ display: "none" }} onChange={handleUpload} />
+          <label htmlFor="upload-capa" style={{
+            background: "linear-gradient(135deg,#1565c0,#0d47a1)",
+            border: "none", borderRadius: 8, color: "#fff",
+            padding: "10px 20px", fontSize: 13, fontFamily: "'Inter', sans-serif",
+            fontWeight: 600, cursor: uploading ? "not-allowed" : "pointer", opacity: uploading ? 0.7 : 1,
+            display: "inline-block"
+          }}>
+            {uploading ? "Enviando..." : "⬆ Importar .png"}
+          </label>
+        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -425,6 +466,33 @@ function AbaCapas() {
               <button onClick={() => setCapas(p => p.map(c => c.id === capa.id ? { ...c, ativa: !c.ativa } : c))} style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, color: theme.textSecondary, padding: "5px 12px", fontSize: 12, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}>
                 {capa.ativa ? "Desativar" : "Ativar"}
               </button>
+              {!capa.ativa && (
+                <button 
+                  onClick={() => handleDelete(capa.nome)} 
+                  title="Excluir permanentemente"
+                  style={{ 
+                    background: "#f44336", // Vermelho vibrante
+                    border: "none", 
+                    borderRadius: 6, // Quadrado com bordas arredondadas
+                    color: "#ffffff", 
+                    width: 32, 
+                    height: 32, 
+                    display: "flex", 
+                    alignItems: "center", 
+                    justifyContent: "center", 
+                    cursor: "pointer", 
+                    transition: "all 0.2s ease",
+                    boxShadow: "0 2px 4px rgba(244, 67, 54, 0.3)"
+                  }} 
+                  onMouseEnter={e => { e.currentTarget.style.background = "#d32f2f"; e.currentTarget.style.transform = "scale(1.05)"; }} 
+                  onMouseLeave={e => { e.currentTarget.style.background = "#f44336"; e.currentTarget.style.transform = "scale(1)"; }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -445,15 +513,20 @@ function AbaAssinatura() {
   const [canvasEl, setCanvasEl] = useState(null);
   const [colaboradores, setColaboradores] = useState([]);
   const [colaboradorId, setColaboradorId] = useState("");
-  const [capaId, setCapaId] = useState("3");
+  const [capaId, setCapaId] = useState("");
   const [form, setForm] = useState({ nome: "", cargo: "", lotacao: "", ramal: "", email: "" });
   const [preview, setPreview] = useState(null);
   const [capaDropdownOpen, setCapaDropdownOpen] = useState(false);
   const [colabDropdownOpen, setColabDropdownOpen] = useState(false);
   const [filtroColab, setFiltroColab] = useState("");
+  const [capas, setCapas] = useState([]);
 
   useEffect(() => {
     fetchColaboradoresAdmin().then(setColaboradores).catch(() => setColaboradores([]));
+    fetchCapas().then(data => {
+      setCapas(data);
+      if (data.length > 0) setCapaId(String(data[0].id));
+    }).catch(() => setCapas([]));
   }, []);
 
   const colaborador = colaboradores.find(c => c.sAMAccountName === colaboradorId);
@@ -474,88 +547,140 @@ function AbaAssinatura() {
     if (!canvas || !form.nome) return;
     const ctx = canvas.getContext("2d");
 
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    const capa = capas.find(c => c.id === Number(capaId));
+
     const desenharComFallback = () => {
-      canvas.width = 700; canvas.height = 180;
-      ctx.fillStyle = "#0d1f3c"; ctx.fillRect(0, 0, 700, 180);
-      const textX = 195, startY = 45, lineH = 22;
-      ctx.font = "bold 18px Arial"; ctx.fillStyle = "#FFFFFF";
+      // Capa não encontrada: gera com fundo padrão
+      canvas.width = 700;
+      canvas.height = 180;
+      ctx.fillStyle = "#0d1f3c";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Borda arredondada visual
+      ctx.strokeStyle = "rgba(100,150,255,0.3)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+
+      // Logo placeholder
+      ctx.fillStyle = "#1565c0";
+      ctx.fillRect(20, 30, 140, 110);
+      ctx.font = "bold 28px Verdana, sans-serif";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText("AEB", 60, 95);
+
+      // Linha divisória
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(175, 20);
+      ctx.lineTo(175, 160);
+      ctx.stroke();
+
+      // Textos
+      const textX = 195;
+      const startY = 45;
+      const lineH = 22;
+
+      ctx.font = "bold 20px Verdana, sans-serif";
+      ctx.fillStyle = "#FFFFFF";
       ctx.fillText(form.nome, textX, startY);
-      ctx.font = "13px Arial"; ctx.fillStyle = "#90caf9";
+
+      ctx.font = "13px Verdana, sans-serif";
+      ctx.fillStyle = "#90caf9";
       ctx.fillText(form.cargo, textX, startY + lineH);
-      ctx.font = "13px Arial"; ctx.fillStyle = "#CCDDEE";
+
+      ctx.font = "13px Verdana, sans-serif";
+      ctx.fillStyle = "#CCDDEE";
+
+      // Quebra texto longo da lotação
       const lotacao = form.lotacao;
+      let ramal = form.ramal || "";
+      let email = form.email || "";
+
       if (lotacao.length > 45) {
         const mid = lotacao.lastIndexOf(" ", 45);
         ctx.fillText(lotacao.substring(0, mid), textX, startY + lineH * 2);
         ctx.fillText(lotacao.substring(mid + 1), textX, startY + lineH * 3 - 4);
-        ctx.font = "bold 14px Arial"; ctx.fillStyle = "#FFFFFF";
+        ctx.font = "bold 14px Verdana, sans-serif";
+        ctx.fillStyle = "#FFFFFF";
         ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 4 - 4);
-        ctx.font = "13px Arial"; ctx.fillStyle = "#CCDDEE";
-        ctx.fillText(`(61) ${form.ramal}    ${form.email}`, textX, startY + lineH * 5 - 4);
+        ctx.font = "13px Verdana, sans-serif";
+        ctx.fillStyle = "#CCDDEE";
+        ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 5 - 4);
       } else {
         ctx.fillText(lotacao, textX, startY + lineH * 2);
-        ctx.font = "bold 14px Arial"; ctx.fillStyle = "#FFFFFF";
+        ctx.font = "bold 14px Verdana, sans-serif";
+        ctx.fillStyle = "#FFFFFF";
         ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 3);
-        ctx.font = "13px Arial"; ctx.fillStyle = "#CCDDEE";
-        ctx.fillText(`(61) ${form.ramal}    ${form.email}`, textX, startY + lineH * 4);
+        ctx.font = "13px Verdana, sans-serif";
+        ctx.fillStyle = "#CCDDEE";
+        ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 4);
       }
+
       setPreview(canvas.toDataURL("image/png"));
     };
 
-    const capa = CAPAS_REAIS.find(c => c.id === Number(capaId));
     if (capa) {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
       img.src = capa.arquivo;
-
       img.onload = () => {
+        // Define o tamanho do canvas para o tamanho REAL da imagem
         canvas.width = img.width;
         canvas.height = img.height;
+
+        // Desenha a capa como fundo
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        const textX = canvas.width * 0.305;
-        let currentY = canvas.height * 0.30;
-        const lineSpacing = canvas.height * 0.14;
+        // Usando proporções para ficar perfeito em qualquer resolução
+        const textX = canvas.width * 0.305; // Ajuste horizontal (após a logo)
+        let currentY = canvas.height * 0.30; // Ajuste vertical inicial
+        const lineSpacing = canvas.height * 0.14; // Espaço entre linhas
 
-        const fontNome = Math.round(canvas.height * 0.110);
+        // Tamanhos de fonte proporcionais
+        const fontNome = Math.round(canvas.height * 0.110) + 2;
         const fontMedia = Math.round(canvas.height * 0.075);
         const fontAeb = Math.round(canvas.height * 0.098);
 
-        ctx.font = `bold ${fontNome}px 'Times New Roman', Times, serif`;
+        // Nome
+        ctx.font = `bold ${fontNome}px Verdana, sans-serif`;
         ctx.fillStyle = "#FFFFFF";
         ctx.fillText(form.nome, textX, currentY);
         currentY += lineSpacing;
 
-        ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
+        // Cargo
+        ctx.font = `${fontMedia}px Verdana, sans-serif`;
         ctx.fillStyle = "#FFFFFF";
         ctx.fillText(form.cargo, textX, currentY);
         currentY += lineSpacing - (canvas.height * 0.01);
 
-        ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
+        // Lotação
+        ctx.font = `${fontMedia}px Verdana, sans-serif`;
         ctx.fillStyle = "#FFFFFF";
         ctx.fillText(form.lotacao, textX, currentY);
-        currentY += lineSpacing + (canvas.height * 0.02);
+        currentY += lineSpacing + (canvas.height * 0.02); // Espaço extra
 
-        ctx.font = `bold ${fontAeb}px 'Times New Roman', Times, serif`;
+        // Agência Espacial Brasileira
+        ctx.font = `bold ${fontAeb}px Verdana, sans-serif`;
         ctx.fillStyle = "#FFFFFF";
         ctx.fillText("Agência Espacial Brasileira", textX, currentY);
         currentY += lineSpacing;
 
-        let ramalFormatado = form.ramal || "";
-        const apenasDigitos = String(ramalFormatado).replace(/\D/g, '');
+        // Tratamento do ramal: garantindo que começará com (61) 2033 -
+        let ramal = form.ramal || "";
+        const apenasDigitos = String(ramal).replace(/\D/g, '');
         const digitosFinais = apenasDigitos.slice(-4);
-        ramalFormatado = `(61) 2033-${digitosFinais || "XXXX"}`;
+        const ramalFormatado = `(61) 2033-${digitosFinais || "XXXX"}`;
 
-        ctx.font = `${fontMedia}px 'Times New Roman', Times, serif`;
+        // Ramal e email
+        ctx.font = `${fontMedia}px Verdana, sans-serif`;
         ctx.fillStyle = "#FFFFFF";
         ctx.fillText(`${ramalFormatado}    ${form.email}`, textX, currentY);
 
+        // Gera preview
         setPreview(canvas.toDataURL("image/png"));
       };
-
-      img.onerror = () => {
-        desenharComFallback();
-      };
+      img.onerror = desenharComFallback;
     } else {
       desenharComFallback();
     }
@@ -673,7 +798,7 @@ function AbaAssinatura() {
                   overflow: "hidden", textOverflow: "ellipsis", position: "relative"
                 }}
               >
-                {capaId ? (CAPAS_REAIS.find(c => c.id === Number(capaId))?.nome || "Sem capa (fundo padrão)") : "Sem capa (fundo padrão)"}
+                {capaId ? (capas.find(c => c.id === Number(capaId))?.nome || "Selecionar capa...") : "Selecionar capa..."}
                 <span style={{
                   position: "absolute", right: 14, top: "50%", transform: `translateY(-50%) rotate(${capaDropdownOpen ? 180 : 0}deg)`,
                   transition: "transform 0.2s", color: theme.inputPlaceholder || theme.textMuted, fontSize: 10
@@ -698,9 +823,9 @@ function AbaAssinatura() {
                     onMouseEnter={e => { if (capaId) e.currentTarget.style.background = theme.dropdownHover || (theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"); }}
                     onMouseLeave={e => { if (capaId) e.currentTarget.style.background = "transparent"; }}
                   >
-                    Sem capa (fundo padrão)
+                    Selecionar capa...
                   </div>
-                  {CAPAS_REAIS.map(c => (
+                  {capas.map(c => (
                     <div
                       key={c.id}
                       onClick={() => { setCapaId(c.id); setCapaDropdownOpen(false); }}
@@ -793,12 +918,21 @@ export default function Admin() {
             ← Voltar
           </button>
           <div style={{ width: 1, height: 24, background: theme.headerBorder }} />
-          <h1 style={{
-            fontSize: 18, fontWeight: 700, color: theme.textPrimary,
-            letterSpacing: "-0.02em", margin: 0,
-          }}>
-            Painel <span style={{ color: theme.textAccent }}>Administrativo</span>
-          </h1>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <img 
+              src={theme.isDark ? "/Images/logoBranca.png" : "/Images/logoAzul.png"} 
+              alt="Logo AEB" 
+              style={{ height: 44, width: "auto", objectFit: "contain", marginRight: 12 }}
+            />
+            <h1 style={{
+              fontSize: 18, fontWeight: 700, color: theme.textPrimary,
+              letterSpacing: "-0.02em", margin: 0,
+              paddingLeft: 12,
+              borderLeft: `1px solid ${theme.rowBorder}`,
+            }}>
+              Painel <span style={{ color: theme.textAccent }}>Administrativo</span>
+            </h1>
+          </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>

@@ -89,3 +89,45 @@ export async function fetchAniversariantes(meses = "") {
   return json.data || [];
 }
 
+// ------------------------------------------------------------------
+// Capas de Assinatura
+// ------------------------------------------------------------------
+export async function fetchCapas() {
+  const res = await fetch(`${BASE_URL}/api/capas`, { headers: getHeaders() });
+  if (!res.ok) throw new Error("Erro ao buscar capas");
+  const json = await res.json();
+  return json.data || [];
+}
+
+export async function uploadCapa(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const headers = getHeaders();
+  // Remove o Content-Type para o navegador preencher corretamente com o boundary do multipart/form-data
+  delete headers["Content-Type"];
+
+  const res = await fetch(`${BASE_URL}/api/admin/capas/upload`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Erro ao fazer upload da capa");
+  }
+  return res.json();
+}
+
+export async function deleteCapa(filename) {
+  const res = await fetch(`${BASE_URL}/api/admin/capas/${encodeURIComponent(filename)}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Erro ao excluir a capa");
+  }
+  return res.json();
+}

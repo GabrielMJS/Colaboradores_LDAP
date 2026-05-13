@@ -172,45 +172,18 @@ export default function Login() {
 
           {/* Logo */}
           <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div 
+            <img 
+              src={isDark ? "/Images/logoBranca.png" : "/Images/logoAzul.png"} 
+              alt="Logo AEB" 
               onClick={() => navigate("/")}
               style={{
-              width: 64, height: 64,
-              background: isDark
-                ? "linear-gradient(135deg, #1a3a7a, #0d2050)"
-                : "linear-gradient(135deg, #1565c0, #0d47a1)",
-              borderRadius: 14,
-              border: `1px solid ${isDark ? "rgba(100,150,255,0.3)" : "rgba(21,101,192,0.4)"}`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 28, margin: "0 auto 16px",
-              boxShadow: isDark ? "0 8px 24px rgba(0,30,100,0.5)" : "0 8px 24px rgba(21,101,192,0.2)",
-              cursor: "pointer",
-            }}>
-              🛰
-            </div>
-            <div style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 700, fontSize: 24,
-              color: isDark ? "#e8eef7" : "#0d1f3c",
-              letterSpacing: "0.1em", textTransform: "uppercase",
-            }}>
-              AEB
-            </div>
-            <div style={{
-              fontSize: 11,
-              color: isDark ? "rgba(180,200,235,0.5)" : "rgba(0,60,160,0.4)",
-              letterSpacing: "0.15em", textTransform: "uppercase",
-              marginBottom: 4,
-            }}>
-              Agência Espacial Brasileira
-            </div>
-            <div style={{
-              fontSize: 13,
-              color: isDark ? "rgba(150,190,255,0.6)" : "rgba(0,80,200,0.5)",
-              fontFamily: "'Inter', sans-serif",
-            }}>
-              Sistema de Assinaturas
-            </div>
+                height: 96, 
+                width: "auto", 
+                objectFit: "contain",
+                cursor: "pointer",
+                marginBottom: 16
+              }}
+            />
           </div>
 
           {/* Campos */}

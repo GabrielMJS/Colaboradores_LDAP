@@ -23,35 +23,11 @@ export default function Header({ search, onSearch, unidade, onUnidade, available
     }}>
       {/* Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{
-          width: 44,
-          height: 44,
-          background: theme.isDark ? "linear-gradient(135deg, #1a3a7a, #0d2050)" : "linear-gradient(135deg, #1565c0, #0d47a1)",
-          borderRadius: 8,
-          border: `1px solid ${theme.isDark ? "rgba(100,150,255,0.3)" : "rgba(21,101,192,0.4)"}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 20,
-        }}>
-          🛰
-        </div>
-        <div>
-          <div style={{
-            fontFamily: "'Inter', sans-serif",
-            fontWeight: 700,
-            fontSize: 18,
-            color: theme.textPrimary,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-          }}>AEB</div>
-          <div style={{
-            fontSize: 10,
-            color: theme.logoSub,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-          }}>Agência Espacial Brasileira</div>
-        </div>
+        <img 
+          src={theme.isDark ? "/Images/logoBranca.png" : "/Images/logoAzul.png"} 
+          alt="Logo AEB" 
+          style={{ height: 52, width: "auto", objectFit: "contain" }}
+        />
         <div style={{
           marginLeft: 8,
           paddingLeft: 16,

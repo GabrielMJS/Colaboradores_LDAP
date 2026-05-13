@@ -108,10 +108,22 @@ export default function ColaboradorRow({ colaborador }) {
           animation: "fadeIn 0.2s ease",
         }}>
           {[
-            { label: "Mensagem no Teams", icon: "💬", color: "#5264ae" },
-            { label: "E-mail no Outlook", icon: "✉️", color: "#0078d4" },
-            { label: "Copiar e-mail", icon: "📋", color: theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,60,160,0.12)" },
-            { label: "Chamada de vídeo", icon: "📹", color: "#2d7d46" },
+            { label: "Mensagem no Teams", icon: "💬", bgColor: "#5264ae", color: "#fff", border: "1px solid transparent" },
+            { label: "E-mail no Outlook", icon: "✉️", bgColor: "#0078d4", color: "#fff", border: "1px solid transparent" },
+            { 
+              label: "Copiar e-mail", 
+              icon: copied ? "✅" : "📋", 
+              bgColor: copied 
+                ? (theme.isDark ? "rgba(76,175,80,0.2)" : "#e8f5e9") 
+                : (theme.isDark ? "rgba(255,255,255,0.05)" : "#ffffff"), 
+              color: copied 
+                ? (theme.isDark ? "#a5d6a7" : "#2e7d32") 
+                : (theme.isDark ? "#e8eef7" : "#1565c0"),
+              border: copied 
+                ? (theme.isDark ? "1px solid rgba(76,175,80,0.5)" : "1px solid #4caf50") 
+                : (theme.isDark ? "1px solid rgba(255,255,255,0.2)" : "1px solid #1565c0")
+            },
+            { label: "Chamada de vídeo", icon: "📹", bgColor: "#2d7d46", color: "#fff", border: "1px solid transparent" },
           ].map(btn => (
             <button
               key={btn.label}
@@ -130,10 +142,10 @@ export default function ColaboradorRow({ colaborador }) {
                 }
               }}
               style={{
-                background: btn.color,
-                border: `1px solid ${theme.isDark ? "rgba(255,255,255,0.1)" : "rgba(0,60,160,0.15)"}`,
+                background: btn.bgColor,
+                border: btn.border,
                 borderRadius: 6,
-                color: theme.isDark ? "white" : btn.color === theme.isDark ? "white" : "#fff",
+                color: btn.color,
                 padding: "6px 14px",
                 fontSize: 12,
                 fontFamily: "'Inter', sans-serif",
@@ -141,7 +153,8 @@ export default function ColaboradorRow({ colaborador }) {
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                transition: "opacity 0.15s, transform 0.15s",
+                fontWeight: btn.label === "Copiar e-mail" ? 600 : 400,
+                transition: "all 0.2s ease",
               }}
               onMouseEnter={e => { e.currentTarget.style.opacity = "0.85"; e.currentTarget.style.transform = "translateY(-1px)"; }}
               onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}
