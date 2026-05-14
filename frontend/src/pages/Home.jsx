@@ -107,7 +107,6 @@ export default function Home() {
       email,
       cargo:   c.title || "",
       foto:    c.foto || null,
-      diretoria_sigla: c.diretoria_sigla || "—",
     };
   }
 
@@ -152,19 +151,19 @@ export default function Home() {
           }}>
             <div style={{
               display: "grid",
-              gridTemplateColumns: "80px 1fr 90px 100px 1fr 90px 220px 180px",
+              gridTemplateColumns: "80px 1fr 100px 1fr 90px 220px 180px",
               gap: 16,
               padding: "12px 24px",
               borderBottom: theme.rowBorder,
               background: theme.tableHeaderBg,
             }}>
-              {["FOTO", "NOME", "DIRETORIA", "COORDENAÇÃO", "LOTAÇÃO", "RAMAL", "E-MAIL", "CARGO"].map(h => (
+              {["FOTO", "NOME", "UNIDADE", "LOTAÇÃO", "RAMAL", "E-MAIL", "CARGO"].map(h => (
                 <div key={h} style={{
                   fontFamily: "'Inter', sans-serif",
                   fontWeight: 600, fontSize: 11,
                   letterSpacing: "0.12em",
                   color: theme.tableHeaderColor,
-                  textAlign: ["FOTO", "RAMAL", "COORDENAÇÃO", "DIRETORIA"].includes(h) ? "center" : "left",
+                  textAlign: ["FOTO", "RAMAL", "UNIDADE"].includes(h) ? "center" : "left",
                 }}>
                   {h}
                 </div>

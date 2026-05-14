@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from ldap_service import LDAPService
@@ -21,8 +22,10 @@ from fastapi import Depends, HTTPException, status, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import shutil
 from pathlib import Path
+import base64
+import io
 
-load_dotenv()
+load_dotenv(override=True)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key")
 ALGORITHM = "HS256"
@@ -184,6 +187,9 @@ def remove_override(username: str, _user = Depends(require_admin)):
         return {"status": "error", "message": str(e)}
 
 
+
+
+
 @app.post("/api/admin/sync")
 def trigger_sync(_user = Depends(require_admin)):
     """Forca sincronizacao LDAP -> banco de dados (acionado pelo admin)."""
@@ -218,6 +224,68 @@ def ldap_search_user(user_id: str):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+
+@app.get("/api/diagnostico/foto/{username}")
+def diagnostico_foto(username: str):
+    """
+    Endpoint de diagnóstico: retorna informações sobre a foto do usuário.
+    Use para depurar problemas sem precisar inspecionar logs do servidor.
+    """
+    try:
+        service = LDAPService()
+        user = service.search_user(username)
+        if not user:
+            return {"status": "not_found", "username": username, "foto": None}
+
+        foto = user.get("foto")
+        return {
+            "status": "ok",
+            "username": username,
+            "tem_foto": foto is not None,
+            "foto_tamanho_chars": len(foto) if foto else 0,
+            "foto_prefix": foto[:50] if foto else None,
+            "displayName": user.get("displayName", ""),
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/users/{username}/photo")
+def get_user_photo(username: str):
+    """
+    Retorna a foto do usuário como imagem JPEG (streaming).
+    Preferível ao Base64 em JSON para requisitos de performance.
+    Uso no frontend: <img src="/api/users/{username}/photo" />
+    Retorna 404 se o usuário não tiver foto cadastrada.
+    """
+    try:
+        service = LDAPService()
+        user = service.search_user(username)
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+        foto_b64 = user.get("foto")
+        if not foto_b64:
+            raise HTTPException(status_code=404, detail="Usuário sem foto cadastrada no LDAP")
+
+        # Remove o prefixo data URI se presente
+        if foto_b64.startswith("data:"):
+            foto_b64 = foto_b64.split(",", 1)[-1]
+
+        img_bytes = base64.b64decode(foto_b64)
+        return Response(
+            content=img_bytes,
+            media_type="image/jpeg",
+            headers={
+                "Cache-Control": "public, max-age=3600",
+                "Content-Disposition": f"inline; filename={username}.jpg",
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/aniversariantes")
 def get_aniversariantes_list(meses: str = Query(default="")):
     try:
@@ -239,7 +307,9 @@ def get_aniversariantes_list(meses: str = Query(default="")):
                         aniversariantes.append({
                             "nome": c.get("displayName") or c.get("cn") or "",
                             "data_aniversario": data_aniv,
-                            "unidade": c.get("ou") or "",
+                            "diretoria_sigla": c.get("diretoria_sigla") or "",
+                            "diretoria": c.get("diretoria") or "",
+                            "coordenacao": c.get("lotacao") or c.get("department") or "",
                             "email": c.get("mail") or ""
                         })
         return {"status": "ok", "data": aniversariantes}

@@ -177,43 +177,55 @@ class LDAPService:
         """
         Converte entrada ldap3 para dict simples e seguro para JSON.
         Trata foto (bytes → base64) e valores multivalorados.
+
+        IMPORTANTE: Para atributos binários (foto), usamos entry[attr].raw_values
+        que retorna os bytes brutos do protocolo LDAP sem nenhuma interpretação
+        do schema — ao contrário de .value que pode transformar/perder os dados.
         """
         parsed = {"dn": entry.entry_dn}
 
         for attr in entry.entry_attributes:
             try:
-                value = entry[attr].value
-
-                # Foto: bytes → string base64 redimensionada
+                # ── Foto: usa raw_values para garantir bytes brutos ──────────
                 if attr in ("thumbnailPhoto", "jpegPhoto"):
-                    if value and isinstance(value, bytes):
-                        # Se não tiver foto ainda, pega essa
-                        if not parsed.get("foto"):
-                            try:
-                                img = Image.open(io.BytesIO(value))
-                                if img.mode != 'RGB':
-                                    img = img.convert('RGB')
-                                # Redimensiona e corta para um quadrado de 256x256 mantendo aspecto
-                                img = ImageOps.fit(img, (256, 256), Image.Resampling.LANCZOS)
-                                buffer = io.BytesIO()
-                                img.save(buffer, format="JPEG", quality=85)
-                                resized_bytes = buffer.getvalue()
-                                parsed["foto"] = "data:image/jpeg;base64," + base64.b64encode(resized_bytes).decode("utf-8")
-                            except Exception as img_err:
-                                print(f"Erro ao redimensionar imagem: {img_err}")
-                                parsed["foto"] = "data:image/jpeg;base64," + base64.b64encode(value).decode("utf-8")
-                    else:
-                        if "foto" not in parsed:
-                            parsed["foto"] = None
+                    if not parsed.get("foto"):
+                        # raw_values é sempre uma lista de bytes brutos
+                        raw_list = entry[attr].raw_values
+                        raw_bytes = self._extrair_bytes_foto(raw_list)
+
+                        if raw_bytes:
+                            parsed["foto"] = self._converter_foto_base64(
+                                raw_bytes, entry.entry_dn
+                            )
+                            print(
+                                f"[LDAP] Foto OK para {entry.entry_dn[:60]!r} "
+                                f"({len(raw_bytes)} bytes)"
+                            )
+                        else:
+                            # raw_values vazio: tenta via .value como fallback
+                            value = entry[attr].value
+                            raw_bytes_fb = self._extrair_bytes_foto(value)
+                            if raw_bytes_fb:
+                                parsed["foto"] = self._converter_foto_base64(
+                                    raw_bytes_fb, entry.entry_dn
+                                )
+                                print(
+                                    f"[LDAP] Foto via fallback .value para "
+                                    f"{entry.entry_dn[:60]!r} ({len(raw_bytes_fb)} bytes)"
+                                )
+                            else:
+                                parsed["foto"] = None
                     continue
 
-                # Listas → junta com vírgula ou pega primeiro
+                # ── Demais atributos ─────────────────────────────────────────
+                value = entry[attr].value
                 if isinstance(value, list):
                     parsed[attr] = ", ".join(str(v) for v in value) if value else ""
                 else:
                     parsed[attr] = str(value) if value is not None else ""
 
-            except Exception:
+            except Exception as e:
+                print(f"[LDAP] Erro ao parsear atributo '{attr}': {e}")
                 parsed[attr] = ""
 
         # Garante que todos os campos esperados pelo frontend existam
@@ -233,3 +245,68 @@ class LDAPService:
                 parsed[campo] = default
 
         return parsed
+
+    # ------------------------------------------------------------------
+    # Helpers de foto
+    # ------------------------------------------------------------------
+
+    def _extrair_bytes_foto(self, value) -> Optional[bytes]:
+        """
+        Extrai bytes brutos de uma foto retornada pelo ldap3.
+        O ldap3 pode retornar:
+          - bytes diretamente
+          - list[bytes] (multivalorado)
+          - bytearray
+          - None ou string vazia
+        """
+        if value is None:
+            return None
+
+        # Lista: pega o primeiro elemento não-vazio
+        if isinstance(value, list):
+            for item in value:
+                extracted = self._extrair_bytes_foto(item)
+                if extracted:
+                    return extracted
+            return None
+
+        # bytes ou bytearray
+        if isinstance(value, (bytes, bytearray)):
+            raw = bytes(value)
+            return raw if len(raw) > 0 else None
+
+        # Fallback: tenta converter via memoryview (alguns bindings retornam isso)
+        try:
+            raw = bytes(value)
+            return raw if len(raw) > 0 else None
+        except (TypeError, ValueError):
+            return None
+
+    def _converter_foto_base64(self, raw_bytes: bytes, dn: str = "") -> Optional[str]:
+        """
+        Converte bytes brutos de uma foto para string base64 Data URI.
+        Redimensiona para 256x256 preservando aspecto.
+        Retorna None em caso de falha irrecuperável.
+        """
+        try:
+            img = Image.open(io.BytesIO(raw_bytes))
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGB")
+            elif img.mode == "RGBA":
+                # Compõe sobre fundo branco para evitar artefatos no JPEG
+                background = Image.new("RGB", img.size, (255, 255, 255))
+                background.paste(img, mask=img.split()[3])
+                img = background
+
+            img = ImageOps.fit(img, (256, 256), Image.Resampling.LANCZOS)
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG", quality=85)
+            return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+        except Exception as img_err:
+            print(f"[LDAP] Erro ao processar imagem (dn={dn}): {img_err}")
+            # Fallback: envia bytes brutos sem redimensionar
+            try:
+                return "data:image/jpeg;base64," + base64.b64encode(raw_bytes).decode("utf-8")
+            except Exception:
+                return None

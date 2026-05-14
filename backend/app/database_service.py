@@ -8,7 +8,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 # ---------------------------------------------------------------
 # Conexao
@@ -117,22 +117,25 @@ def upsert_colaborador(username: str, fields: dict):
     """
     Insere ou atualiza um colaborador no banco.
     Campos aceitos: nome_completo, email, ramal, cargo, unidade_sigla,
-                    lotacao, data_aniversario, visivel, foto_url
+                    lotacao, data_aniversario, visivel, foto_url,
+                    diretoria_sigla, coordenacao_sigla
     """
+    CAMPOS_PERMITIDOS = (
+        "nome_completo", "email", "ramal", "cargo", "unidade_sigla",
+        "lotacao", "data_aniversario", "visivel", "foto_url",
+        "diretoria_sigla", "coordenacao_sigla",
+    )
     conn = _get_conn()
     cur = conn.cursor()
 
-    # Verifica se ja existe
     cur.execute("SELECT id FROM colaborador WHERE username = %s", (username,))
     existing = cur.fetchone()
 
     if existing:
-        # UPDATE - atualiza apenas campos informados
         set_parts = []
         values = []
         for key, value in fields.items():
-            if key in ("nome_completo", "email", "ramal", "cargo", "unidade_sigla",
-                       "lotacao", "data_aniversario", "visivel", "foto_url"):
+            if key in CAMPOS_PERMITIDOS:
                 val_to_set = value.upper() if key == "cargo" and value else value
                 set_parts.append(f"{key} = %s")
                 values.append(val_to_set)
@@ -143,14 +146,12 @@ def upsert_colaborador(username: str, fields: dict):
             sql = f"UPDATE colaborador SET {', '.join(set_parts)} WHERE username = %s"
             cur.execute(sql, values)
     else:
-        # INSERT
         cols = ["username"]
         vals = [username]
         placeholders = ["%s"]
 
         for key, value in fields.items():
-            if key in ("nome_completo", "email", "ramal", "cargo", "unidade_sigla",
-                       "lotacao", "data_aniversario", "visivel", "foto_url"):
+            if key in CAMPOS_PERMITIDOS:
                 val_to_set = value.upper() if key == "cargo" and value else value
                 cols.append(key)
                 vals.append(val_to_set)
@@ -177,7 +178,8 @@ def delete_colaborador_overrides(username: str):
 def apply_db_overrides(colaboradores: list, filter_hidden: bool = True) -> list:
     """
     Mescla a lista do LDAP com os dados enriquecidos do banco PostgreSQL.
-    Substitui apply_overrides do overrides_service.py.
+    Prioridade: banco (admin) > LDAP.
+    Diretoria e coordenação são lidas do banco quando disponíveis.
     """
     conn = _get_conn()
     cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -186,7 +188,6 @@ def apply_db_overrides(colaboradores: list, filter_hidden: bool = True) -> list:
     cur.close()
     conn.close()
 
-    # Monta dicionario por username
     db_map = {row["username"]: dict(row) for row in rows}
 
     result = []
@@ -194,7 +195,7 @@ def apply_db_overrides(colaboradores: list, filter_hidden: bool = True) -> list:
         username = c.get("sAMAccountName", "")
         db_data = db_map.get(username, {})
 
-        # Aplica overrides do banco nos campos do LDAP
+        # Campos do banco sobrescrevem LDAP (se admin editou)
         if db_data.get("ramal"):
             c["telephoneNumber"] = db_data["ramal"]
         if db_data.get("cargo"):
@@ -208,13 +209,17 @@ def apply_db_overrides(colaboradores: list, filter_hidden: bool = True) -> list:
         if db_data.get("foto_url"):
             c["foto"] = db_data["foto_url"]
 
-        # Flag para o frontend saber o que foi editado
+        # Diretoria e Coordenação: banco tem prioridade (admin pode sobrescrever)
+        # mas se não estiver no banco ainda, será preenchido pelo normalize_departments
+        if db_data.get("diretoria_sigla"):
+            c["_db_diretoria_sigla"] = db_data["diretoria_sigla"]
+        if db_data.get("coordenacao_sigla"):
+            c["_db_coordenacao_sigla"] = db_data["coordenacao_sigla"]
+
         c["_overrides"] = {k: v for k, v in db_data.items()
                           if k not in ("id", "criado_em", "atualizado_em", "departamento_id")
                           and v is not None}
         c["_in_db"] = bool(db_data)
-
-        # Visibilidade
         c["visivel"] = db_data.get("visivel", True) if db_data else True
 
         if filter_hidden and c["visivel"] is False:
@@ -262,14 +267,33 @@ def backfill_lotacoes():
 # DEPARTMENTS NORMALIZATION
 # ---------------------------------------------------------------
 
+# Mapeamento sigla coordenação → sigla diretoria (extraído do Excel Força de Trabalho AEB)
 COOR_TO_DIR = {
-    'PRE': 'PRE', 'URMA': 'URMA', 'URRN': 'URRN', 'URSJC': 'URSJC', 
-    'GAB': 'GAB', 'OUV': 'GAB', 'ARI': 'ARI', 'CCS': 'ARI', 'CRI': 'ARI', 
-    'PF': 'PF', 'ACI': 'ACI', 'AUDIN': 'AUDIN', 'DPOA': 'DPOA', 'COF': 'DPOA', 
-    'CTI': 'DPOA', 'CGP': 'DPOA', 'COAD': 'DPOA', 'DGSE': 'DGSE', 'CMA': 'DGSE', 
-    'CPP': 'DGSE', 'CEG': 'DGSE', 'DGEP': 'DGEP', 'CSS': 'DGEP', 'CVL': 'DGEP', 
-    'CSA': 'DGEP', 'DIEN': 'DIEN', 'CDT': 'DIEN', 'CEN': 'DIEN', 'CLC': 'DIEN', 
-    'REQUISITADO': 'REQUISITADO', 'CEDIDO (A)': 'CEDIDO', 'MOVIMENTADO': 'MOVIMENTADO'
+    # Presidência
+    'PRE': 'PRE',
+    # Unidades Regionais (são diretorias em si mesmas)
+    'URMA': 'URMA', 'URRN': 'URRN', 'URSJC': 'URSJC',
+    # Gabinete e subordinadas
+    'GAB': 'GAB', 'OUV': 'GAB',
+    # Assessoria de Relações Institucionais
+    'ARI': 'ARI', 'CCS': 'ARI', 'CRI': 'ARI',
+    # Outros órgãos autônomos
+    'PF': 'PF', 'ACI': 'ACI', 'AUDIN': 'AUDIN',
+    # DPOA — Diretoria de Planejamento, Orçamento e Administração
+    'DPOA': 'DPOA', 'COF': 'DPOA', 'CTI': 'DPOA',
+    'CGP': 'DPOA', 'COAD': 'DPOA',
+    # DGSE — Diretoria de Governança do Setor Espacial
+    'DGSE': 'DGSE', 'CMA': 'DGSE', 'CPP': 'DGSE', 'CEG': 'DGSE',
+    # DGEP — Diretoria de Gestão de Portfólio
+    'DGEP': 'DGEP', 'CSS': 'DGEP', 'CVL': 'DGEP', 'CSA': 'DGEP',
+    # DIEN — Diretoria de Novos Negócios (Inovação Espacial)
+    'DIEN': 'DIEN', 'CDT': 'DIEN', 'CEN': 'DIEN', 'CLC': 'DIEN',
+    # Situações especiais
+    'REQUISITADO': 'REQUISITADO',
+    'CEDIDO (A)': 'CEDIDO', 'CEDIDO': 'CEDIDO',
+    'MOVIMENTADO': 'MOVIMENTADO',
+    # Legados/aliases
+    'CTIC': 'DPOA', 'DSG': 'DGSE', 'DIPA': 'DPOA',
 }
 
 def normalize_departments(colaboradores: list) -> list:
@@ -321,13 +345,23 @@ def normalize_departments(colaboradores: list) -> list:
                 c["ou"] = "—" # Fallback visual se realmente não tivermos nada
         
         # Populate Diretoria information
-        final_ou = c.get("ou", "")
-        dir_sigla = COOR_TO_DIR.get(final_ou.upper(), final_ou)
+        # Prioridade: valor do banco (admin) > cálculo pelo COOR_TO_DIR
+        if c.get("_db_diretoria_sigla"):
+            dir_sigla = c["_db_diretoria_sigla"]
+        else:
+            final_ou = c.get("ou", "")
+            dir_sigla = COOR_TO_DIR.get(final_ou.upper(), final_ou)
+
         c["diretoria_sigla"] = dir_sigla
-        
+
+        if c.get("_db_coordenacao_sigla"):
+            c["ou"] = c["_db_coordenacao_sigla"]
+
         reverse_map = {v: k for k, v in siglas_dict.items()}
         c["diretoria"] = reverse_map.get(dir_sigla.upper(), dir_sigla)
-                
+        c["unidade"] = c.get("ou", "")
+        c["lotacao"] = c.get("department", "")
+
     return colaboradores
 
 # ---------------------------------------------------------------

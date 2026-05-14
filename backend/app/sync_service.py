@@ -14,7 +14,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from ldap_service import LDAPService
-from database_service import _get_conn, backfill_lotacoes
+from database_service import _get_conn, backfill_lotacoes, COOR_TO_DIR
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -25,7 +25,8 @@ def sync_ldap_to_db():
     Sincroniza todos os usuarios ativos do LDAP para a tabela 'colaborador'.
     - Insere novos colaboradores
     - Atualiza nome, email, cargo, departamento, unidade dos existentes
-    - NAO sobrescreve campos que o admin customizou (ramal, visivel, data_aniversario)
+    - NAO sobrescreve campos que o admin customizou (ramal, visivel, data_aniversario,
+      diretoria_sigla, coordenacao_sigla)
     """
     print("[SYNC] Conectando ao LDAP...")
     service = LDAPService()
@@ -48,51 +49,68 @@ def sync_ldap_to_db():
         email = user.get("mail") or ""
         cargo_ldap = user.get("title") or ""
         dept_ldap = user.get("department") or ""
-        ou_ldap = user.get("ou") or ""
-        # foto_ldap removido para evitar erro de tamanho no banco
+
+        # ou: usa atributo direto; se vazio, extrai do DN (padrão no AD)
+        ou_attr = (user.get("ou") or "").strip()
+        if not ou_attr:
+            import re
+            dn = user.get("distinguishedName") or user.get("dn") or ""
+            m = re.search(r"(?i)OU=([^,]+)", dn)
+            ou_attr = m.group(1).strip() if m else ""
+        ou_ldap = ou_attr.upper()
+
+        # Calcula diretoria e coordenacao a partir da sigla da unidade
+        dir_sigla = COOR_TO_DIR.get(ou_ldap, ou_ldap) if ou_ldap else ""
+        coor_sigla = ou_ldap
 
         try:
-            # Verifica se ja existe no banco
-            cur.execute("SELECT id, ramal, cargo, unidade_sigla, data_aniversario, visivel FROM colaborador WHERE username = %s", (username,))
+            cur.execute(
+                "SELECT id FROM colaborador WHERE username = %s", (username,)
+            )
             existing = cur.fetchone()
 
             if existing:
-                # UPDATE — atualiza apenas campos vindos do LDAP, preserva overrides do admin
-                colab_id, ramal_db, cargo_db, unidade_db, aniv_db, visivel_db = existing
-
-                # Cargo: usa o do banco se o admin editou, senao pega do LDAP
-                cargo_final = cargo_db if cargo_db else cargo_ldap
-
-                # Unidade: usa a do banco se o admin editou, senao pega do LDAP
-                unidade_final = unidade_db if unidade_db else ou_ldap
-
+                # UPDATE — atualiza campos do LDAP, preserva overrides do admin com COALESCE
                 cur.execute("""
-                    UPDATE colaborador 
-                    SET nome_completo = %s,
-                        email = %s,
-                        cargo = COALESCE(cargo, %s),
-                        lotacao = COALESCE(lotacao, %s),
-                        unidade_sigla = COALESCE(unidade_sigla, %s),
-                        atualizado_em = CURRENT_TIMESTAMP
+                    UPDATE colaborador
+                    SET nome_completo     = %s,
+                        email            = %s,
+                        cargo            = COALESCE(cargo, %s),
+                        lotacao          = COALESCE(lotacao, %s),
+                        unidade_sigla    = COALESCE(unidade_sigla, %s),
+                        diretoria_sigla  = COALESCE(diretoria_sigla, %s),
+                        coordenacao_sigla = COALESCE(coordenacao_sigla, %s),
+                        atualizado_em    = CURRENT_TIMESTAMP
                     WHERE username = %s
-                """, (nome, email, cargo_ldap.upper() if cargo_ldap else None, dept_ldap, ou_ldap, username))
-
+                """, (
+                    nome, email,
+                    cargo_ldap.upper() if cargo_ldap else None,
+                    dept_ldap, ou_ldap,
+                    dir_sigla or None,
+                    coor_sigla or None,
+                    username
+                ))
                 atualizados += 1
             else:
                 # INSERT — novo colaborador
                 cur.execute("""
-                    INSERT INTO colaborador 
-                        (username, nome_completo, email, cargo, lotacao, unidade_sigla, visivel)
-                    VALUES (%s, %s, %s, %s, %s, %s, TRUE)
-                """, (username, nome, email, cargo_ldap.upper() if cargo_ldap else None, dept_ldap, ou_ldap))
-
+                    INSERT INTO colaborador
+                        (username, nome_completo, email, cargo, lotacao,
+                         unidade_sigla, diretoria_sigla, coordenacao_sigla, visivel)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                """, (
+                    username, nome, email,
+                    cargo_ldap.upper() if cargo_ldap else None,
+                    dept_ldap, ou_ldap,
+                    dir_sigla or None,
+                    coor_sigla or None,
+                ))
                 inseridos += 1
 
         except Exception as e:
             erros += 1
             print(f"[SYNC] Erro ao processar '{username}': {e}")
             conn.rollback()
-            # Reconecta para continuar
             conn = _get_conn()
             cur = conn.cursor()
 
