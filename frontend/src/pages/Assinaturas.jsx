@@ -30,6 +30,7 @@ export default function Assinaturas() {
     nome: user.displayName || user.username || "Usuário não identificado",
     cargo: user.title || "Cargo não informado",
     lotacao: user.department || "Lotação não informada",
+    diretoria: user.diretoria || "Diretoria não informada",
     email: user.email || "",
   } : null;
 
@@ -42,6 +43,11 @@ export default function Assinaturas() {
   }, [user]);
 
   const capa = CAPAS.find(c => c.id === Number(capaId));
+
+  const toTitleCase = (str) => {
+    if (!str) return "";
+    return str.toLowerCase().replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+  };
 
   function gerarAssinatura() {
     if (!colaborador || !capa) return;
@@ -62,13 +68,14 @@ export default function Assinaturas() {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
       // Usando proporções para ficar perfeito em qualquer resolução
-      const textX = canvas.width * 0.305; // Ajuste horizontal (após a logo)
-      let currentY = canvas.height * 0.30; // Ajuste vertical inicial
-      const lineSpacing = canvas.height * 0.14; // Espaço entre linhas
+      const textX = (canvas.width * 0.305) - 8; // 8px para a esquerda (3px + 5px)
+      let currentY = (canvas.height * 0.28) + 8; // Centralizado verticalmente (+8px para baixo)
+      const lineSpacing = canvas.height * 0.12; // Espaço entre linhas (reduzido de 0.14)
+      const secondarySpacing = canvas.height * 0.10; // Espaço menor para cargo/lotacao/dir
 
       // Tamanhos de fonte proporcionais
       const fontNome = Math.round(canvas.height * 0.110) + 2;
-      const fontMedia = Math.round(canvas.height * 0.075);
+      const fontMedia = Math.round(canvas.height * 0.075) - 2; // Diminuído em 2px
       const fontAeb = Math.round(canvas.height * 0.098);
 
       // Nome
@@ -80,20 +87,26 @@ export default function Assinaturas() {
       // Cargo (Suporte CTI)
       ctx.font = `${fontMedia}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(colaborador.cargo, textX, currentY);
-      currentY += lineSpacing - (canvas.height * 0.01);
+      ctx.fillText(toTitleCase(colaborador.cargo), textX, currentY);
+      currentY += secondarySpacing;
 
       // Lotação (Coordenação de Tecnologia da Informação)
       ctx.font = `${fontMedia}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(colaborador.lotacao, textX, currentY);
-      currentY += lineSpacing + (canvas.height * 0.02); // Espaço extra
+      currentY += secondarySpacing;
+
+      // Diretoria
+      ctx.font = `${fontMedia}px Verdana, sans-serif`;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText(colaborador.diretoria, textX, currentY);
+      currentY += secondarySpacing + (canvas.height * 0.02) + 2; // Espaço extra antes da AEB (+2px)
 
       // Agência Espacial Brasileira
       ctx.font = `bold ${fontAeb}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText("Agência Espacial Brasileira", textX, currentY);
-      currentY += lineSpacing;
+      currentY += lineSpacing + 2; // +2px extra abaixo da AEB
 
       // Tratamento do ramal: garantindo que começará com (61) 2033 -
       const apenasDigitos = ramal.replace(/\D/g, '');
@@ -455,20 +468,24 @@ export default function Assinaturas() {
               <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Inter', sans-serif", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>
                 Dados puxados automaticamente
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1.8fr 1.8fr", gap: 16 }}>
                 {[
                   { label: "Nome", value: colaborador.nome },
-                  { label: "Área / Cargo", value: colaborador.cargo },
-                  { label: "Diretoria / Lotação", value: colaborador.lotacao },
+                  { label: "Cargo", value: toTitleCase(colaborador.cargo) },
+                  { label: "Diretoria", value: colaborador.diretoria },
+                  { label: "Lotação", value: colaborador.lotacao },
                 ].map(f => (
                   <div key={f.label}>
                     <span style={{ ...labelStyle, marginBottom: 4 }}>{f.label}</span>
                     <div style={{
-                      fontSize: 13,
+                      fontSize: 11,
                       color: theme.textPrimary,
                       fontFamily: "'Inter', sans-serif",
                       padding: "7px 0",
                       borderBottom: theme.rowBorder,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis"
                     }}>
                       {f.value}
                     </div>

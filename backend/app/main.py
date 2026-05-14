@@ -9,7 +9,8 @@ from database_service import (
     apply_db_overrides,
     upsert_colaborador,
     delete_colaborador_overrides,
-    normalize_departments
+    normalize_departments,
+    get_siglas_reverse_map
 )
 from sync_service import full_sync
 from typing import Optional
@@ -158,9 +159,16 @@ def get_colaboradores_admin(unidade: Optional[str] = Query(default=None), _user 
 def set_override(username: str, body: OverrideRequest, _user = Depends(require_admin)):
     try:
         fields = {k: v for k, v in body.dict().items() if v is not None}
+        
         # Tratamento especial para mapear `unidade` para `unidade_sigla`
         if 'unidade' in fields:
-            fields['unidade_sigla'] = fields.pop('unidade')
+            sigla = fields.pop('unidade')
+            fields['unidade_sigla'] = sigla
+            
+            # Atualiza automaticamente a lotação com base na sigla
+            reverse_map = get_siglas_reverse_map()
+            if sigla.upper() in reverse_map:
+                fields['lotacao'] = reverse_map[sigla.upper()]
             
         upsert_colaborador(username, fields)
         return {"status": "ok", "message": f"Customizações de '{username}' salvas no banco."}
@@ -336,6 +344,11 @@ def auth_login(body: LoginRequest):
                 "username":    body.username,
                 "displayName": user_info.get("displayName") or user_info.get("cn", body.username),
                 "email":       user_info.get("mail", ""),
+                "title":       user_info.get("title", ""),
+                "department":  user_info.get("department", ""),
+                "ou":          user_info.get("ou", ""),
+                "diretoria_sigla": user_info.get("diretoria_sigla", ""),
+                "diretoria":   user_info.get("diretoria", ""),
                 "isAdmin":     False
             }
 

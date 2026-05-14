@@ -262,6 +262,16 @@ def backfill_lotacoes():
 # DEPARTMENTS NORMALIZATION
 # ---------------------------------------------------------------
 
+COOR_TO_DIR = {
+    'PRE': 'PRE', 'URMA': 'URMA', 'URRN': 'URRN', 'URSJC': 'URSJC', 
+    'GAB': 'GAB', 'OUV': 'GAB', 'ARI': 'ARI', 'CCS': 'ARI', 'CRI': 'ARI', 
+    'PF': 'PF', 'ACI': 'ACI', 'AUDIN': 'AUDIN', 'DPOA': 'DPOA', 'COF': 'DPOA', 
+    'CTI': 'DPOA', 'CGP': 'DPOA', 'COAD': 'DPOA', 'DGSE': 'DGSE', 'CMA': 'DGSE', 
+    'CPP': 'DGSE', 'CEG': 'DGSE', 'DGEP': 'DGEP', 'CSS': 'DGEP', 'CVL': 'DGEP', 
+    'CSA': 'DGEP', 'DIEN': 'DIEN', 'CDT': 'DIEN', 'CEN': 'DIEN', 'CLC': 'DIEN', 
+    'REQUISITADO': 'REQUISITADO', 'CEDIDO (A)': 'CEDIDO', 'MOVIMENTADO': 'MOVIMENTADO'
+}
+
 def normalize_departments(colaboradores: list) -> list:
     """
     Normaliza a lotação (department) de todos os colaboradores usando
@@ -309,6 +319,14 @@ def normalize_departments(colaboradores: list) -> list:
                 c["ou"] = sigla
             elif not c.get("ou"):
                 c["ou"] = "—" # Fallback visual se realmente não tivermos nada
+        
+        # Populate Diretoria information
+        final_ou = c.get("ou", "")
+        dir_sigla = COOR_TO_DIR.get(final_ou.upper(), final_ou)
+        c["diretoria_sigla"] = dir_sigla
+        
+        reverse_map = {v: k for k, v in siglas_dict.items()}
+        c["diretoria"] = reverse_map.get(dir_sigla.upper(), dir_sigla)
                 
     return colaboradores
 

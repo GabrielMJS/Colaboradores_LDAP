@@ -514,7 +514,7 @@ function AbaAssinatura() {
   const [colaboradores, setColaboradores] = useState([]);
   const [colaboradorId, setColaboradorId] = useState("");
   const [capaId, setCapaId] = useState("");
-  const [form, setForm] = useState({ nome: "", cargo: "", lotacao: "", ramal: "", email: "" });
+  const [form, setForm] = useState({ nome: "", cargo: "", diretoria: "", lotacao: "", ramal: "", email: "" });
   const [preview, setPreview] = useState(null);
   const [capaDropdownOpen, setCapaDropdownOpen] = useState(false);
   const [colabDropdownOpen, setColabDropdownOpen] = useState(false);
@@ -536,6 +536,7 @@ function AbaAssinatura() {
     setForm({
       nome:    colaborador.displayName || colaborador.cn || "",
       cargo:   colaborador.title || "",
+      diretoria: colaborador.diretoria || "",
       lotacao: colaborador.department || "",
       ramal:   colaborador.telephoneNumber || "",
       email:   colaborador.mail || "",
@@ -580,14 +581,14 @@ function AbaAssinatura() {
 
       // Textos
       const textX = 195;
-      const startY = 45;
-      const lineH = 22;
+      const startY = 45; // Voltou para 45 para centralizar melhor no fallback
+      const lineH = 18; // Espaço reduzido (era 22)
 
       ctx.font = "bold 20px Verdana, sans-serif";
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(form.nome, textX, startY);
 
-      ctx.font = "13px Verdana, sans-serif";
+      ctx.font = "11px Verdana, sans-serif";
       ctx.fillStyle = "#90caf9";
       ctx.fillText(form.cargo, textX, startY + lineH);
 
@@ -603,20 +604,22 @@ function AbaAssinatura() {
         const mid = lotacao.lastIndexOf(" ", 45);
         ctx.fillText(lotacao.substring(0, mid), textX, startY + lineH * 2);
         ctx.fillText(lotacao.substring(mid + 1), textX, startY + lineH * 3 - 4);
+        ctx.fillText(form.diretoria, textX, startY + lineH * 4 - 4);
         ctx.font = "bold 14px Verdana, sans-serif";
         ctx.fillStyle = "#FFFFFF";
-        ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 4 - 4);
-        ctx.font = "13px Verdana, sans-serif";
+        ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 5 - 6); // +2px
+        ctx.font = "11px Verdana, sans-serif";
         ctx.fillStyle = "#CCDDEE";
-        ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 5 - 4);
+        ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 6 - 4); // +2px (+2px base + 2px extra)
       } else {
         ctx.fillText(lotacao, textX, startY + lineH * 2);
+        ctx.fillText(form.diretoria, textX, startY + lineH * 3);
         ctx.font = "bold 14px Verdana, sans-serif";
         ctx.fillStyle = "#FFFFFF";
-        ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 3);
-        ctx.font = "13px Verdana, sans-serif";
+        ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 4 + 2); // +2px
+        ctx.font = "11px Verdana, sans-serif";
         ctx.fillStyle = "#CCDDEE";
-        ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 4);
+        ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 5 + 4); // +2px (anterior) + 2px (novo)
       }
 
       setPreview(canvas.toDataURL("image/png"));
@@ -633,13 +636,14 @@ function AbaAssinatura() {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
         // Usando proporções para ficar perfeito em qualquer resolução
-        const textX = canvas.width * 0.305; // Ajuste horizontal (após a logo)
-        let currentY = canvas.height * 0.30; // Ajuste vertical inicial
-        const lineSpacing = canvas.height * 0.14; // Espaço entre linhas
+        const textX = (canvas.width * 0.305) - 8; // 8px para a esquerda (3px + 5px)
+        let currentY = (canvas.height * 0.28) + 8; // Centralizado verticalmente (+8px para baixo)
+        const lineSpacing = canvas.height * 0.12; // Espaço entre linhas
+        const secondarySpacing = canvas.height * 0.10; // Espaço menor para cargo/lotacao/dir
 
         // Tamanhos de fonte proporcionais
         const fontNome = Math.round(canvas.height * 0.110) + 2;
-        const fontMedia = Math.round(canvas.height * 0.075);
+        const fontMedia = Math.round(canvas.height * 0.075) - 2; // Diminuído em 2px
         const fontAeb = Math.round(canvas.height * 0.098);
 
         // Nome
@@ -652,19 +656,25 @@ function AbaAssinatura() {
         ctx.font = `${fontMedia}px Verdana, sans-serif`;
         ctx.fillStyle = "#FFFFFF";
         ctx.fillText(form.cargo, textX, currentY);
-        currentY += lineSpacing - (canvas.height * 0.01);
+        currentY += secondarySpacing;
 
         // Lotação
         ctx.font = `${fontMedia}px Verdana, sans-serif`;
         ctx.fillStyle = "#FFFFFF";
         ctx.fillText(form.lotacao, textX, currentY);
-        currentY += lineSpacing + (canvas.height * 0.02); // Espaço extra
+        currentY += secondarySpacing;
+
+        // Diretoria
+        ctx.font = `${fontMedia}px Verdana, sans-serif`;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(form.diretoria, textX, currentY);
+        currentY += secondarySpacing + (canvas.height * 0.02) + 2; // Espaço extra antes da AEB (+2px)
 
         // Agência Espacial Brasileira
         ctx.font = `bold ${fontAeb}px Verdana, sans-serif`;
         ctx.fillStyle = "#FFFFFF";
         ctx.fillText("Agência Espacial Brasileira", textX, currentY);
-        currentY += lineSpacing;
+        currentY += lineSpacing + 2; // +2px extra abaixo da AEB
 
         // Tratamento do ramal: garantindo que começará com (61) 2033 -
         let ramal = form.ramal || "";
@@ -849,9 +859,10 @@ function AbaAssinatura() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div><label style={labelStyle(theme)}>Nome completo</label>{f("nome")}</div>
           <div><label style={labelStyle(theme)}>Cargo / Função</label>{f("cargo")}</div>
+          <div><label style={labelStyle(theme)}>Diretoria</label>{f("diretoria")}</div>
           <div><label style={labelStyle(theme)}>Lotação / Coordenação</label>{f("lotacao")}</div>
           <div><label style={labelStyle(theme)}>Ramal</label>{f("ramal")}</div>
-          <div style={{ gridColumn: "1 / -1" }}><label style={labelStyle(theme)}>E-mail</label>{f("email")}</div>
+          <div><label style={labelStyle(theme)}>E-mail</label>{f("email")}</div>
         </div>
 
         <button onClick={gerar} disabled={!form.nome} style={{
