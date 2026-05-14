@@ -94,13 +94,15 @@ export default function Home() {
     // Email: LDAP
     const email = c.mail || "";
 
-    // Lotação é o nome completo que vem no department (agora forçado para maiúsculas)
-    const lotacao = (c.department || "").trim().toUpperCase();
+    // Lotação é o nome completo que vem no department
+    const lotacao = (c.department || "").trim();
     const unidade = (c.ou || c.department || "").trim();
+    const diretoria = (c.diretoria_sigla || "").trim();
 
     return {
       id:      c.sAMAccountName || c.dn || index,
       nome,
+      diretoria,
       unidade,
       lotacao,
       ramal,
@@ -151,19 +153,19 @@ export default function Home() {
           }}>
             <div style={{
               display: "grid",
-              gridTemplateColumns: "80px 1fr 100px 1fr 90px 220px 180px",
+              gridTemplateColumns: "80px 1fr 100px 130px 1fr 90px 220px 180px",
               gap: 16,
               padding: "12px 24px",
               borderBottom: theme.rowBorder,
               background: theme.tableHeaderBg,
             }}>
-              {["FOTO", "NOME", "UNIDADE", "LOTAÇÃO", "RAMAL", "E-MAIL", "CARGO"].map(h => (
+              {["FOTO", "NOME", "DIRETORIA", "COORDENAÇÃO", "LOTAÇÃO", "RAMAL", "E-MAIL", "CARGO"].map(h => (
                 <div key={h} style={{
                   fontFamily: "'Inter', sans-serif",
                   fontWeight: 600, fontSize: 11,
                   letterSpacing: "0.12em",
                   color: theme.tableHeaderColor,
-                  textAlign: ["FOTO", "RAMAL", "UNIDADE"].includes(h) ? "center" : "left",
+                  textAlign: ["FOTO", "RAMAL", "DIRETORIA", "COORDENAÇÃO"].includes(h) ? "center" : "left",
                 }}>
                   {h}
                 </div>

@@ -106,7 +106,8 @@ export default function Aniversariantes() {
     const dadosExcel = dados.map(item => ({
       "Nome": item.nome,
       "Data de Aniversário": item.data_aniversario,
-      "Unidade": item.unidade
+      "Diretoria": item.diretoria_sigla || "",
+      "Coordenação": item.coordenacao_sigla || ""
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dadosExcel);
@@ -282,7 +283,8 @@ export default function Aniversariantes() {
                   <tr style={{ borderBottom: `1px solid ${borderColor}`, color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", fontSize: 12, textTransform: "uppercase" }}>
                     <th style={{ padding: "12px 16px" }}>Nome</th>
                     <th style={{ padding: "12px 16px" }}>Data de Aniversário</th>
-                    <th style={{ padding: "12px 16px" }}>Unidade</th>
+                    <th style={{ padding: "12px 16px" }}>Diretoria</th>
+                    <th style={{ padding: "12px 16px" }}>Coordenação</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -290,7 +292,8 @@ export default function Aniversariantes() {
                     <tr key={i} style={{ borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}` }}>
                       <td style={{ padding: "14px 16px", color: isDark ? "#fff" : "#000", fontWeight: 500, fontSize: 14 }}>{d.nome}</td>
                       <td style={{ padding: "14px 16px", color: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.7)", fontSize: 14 }}>{d.data_aniversario}</td>
-                      <td style={{ padding: "14px 16px", color: isDark ? "#90caf9" : "#1565c0", fontSize: 14, fontWeight: 600 }}>{d.unidade}</td>
+                      <td style={{ padding: "14px 16px", color: isDark ? "#90caf9" : "#1565c0", fontSize: 14, fontWeight: 600 }}>{d.diretoria_sigla}</td>
+                      <td style={{ padding: "14px 16px", color: isDark ? "#90caf9" : "#1565c0", fontSize: 14, fontWeight: 600 }}>{d.coordenacao_sigla}</td>
                     </tr>
                   ))}
                 </tbody>

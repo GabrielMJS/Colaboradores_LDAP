@@ -14,7 +14,7 @@ export default function ColaboradorRow({ colaborador }) {
         onClick={() => setExpanded(e => !e)}
         style={{
           display: "grid",
-          gridTemplateColumns: "80px 1fr 100px 1fr 90px 220px 180px",
+          gridTemplateColumns: "80px 1fr 100px 130px 1fr 90px 220px 180px",
           alignItems: "center",
           gap: 16,
           padding: "14px 24px",
@@ -44,7 +44,19 @@ export default function ColaboradorRow({ colaborador }) {
           <span style={{ color: theme.textMuted, fontSize: 10 }}>▼</span>
         </div>
 
-        {/* Unidade */}
+        {/* Diretoria */}
+        <div style={{
+          color: theme.textAccent,
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 600,
+          fontSize: 13,
+          letterSpacing: "0.05em",
+          textAlign: "center",
+        }}>
+          {colaborador.diretoria}
+        </div>
+
+        {/* Coordenação */}
         <div style={{
           color: theme.textAccent,
           fontFamily: "'Inter', sans-serif",

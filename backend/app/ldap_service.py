@@ -197,10 +197,6 @@ class LDAPService:
                             parsed["foto"] = self._converter_foto_base64(
                                 raw_bytes, entry.entry_dn
                             )
-                            print(
-                                f"[LDAP] Foto OK para {entry.entry_dn[:60]!r} "
-                                f"({len(raw_bytes)} bytes)"
-                            )
                         else:
                             # raw_values vazio: tenta via .value como fallback
                             value = entry[attr].value
@@ -208,10 +204,6 @@ class LDAPService:
                             if raw_bytes_fb:
                                 parsed["foto"] = self._converter_foto_base64(
                                     raw_bytes_fb, entry.entry_dn
-                                )
-                                print(
-                                    f"[LDAP] Foto via fallback .value para "
-                                    f"{entry.entry_dn[:60]!r} ({len(raw_bytes_fb)} bytes)"
                                 )
                             else:
                                 parsed["foto"] = None

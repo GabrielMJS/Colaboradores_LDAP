@@ -173,6 +173,11 @@ def set_override(username: str, body: OverrideRequest, _user = Depends(require_a
             if sigla.upper() in reverse_map:
                 fields['lotacao'] = reverse_map[sigla.upper()]
             
+            # Atualiza coordenacao_sigla e diretoria_sigla automaticamente
+            fields['coordenacao_sigla'] = sigla.upper()
+            from database_service import COOR_TO_DIR
+            fields['diretoria_sigla'] = COOR_TO_DIR.get(sigla.upper(), sigla.upper())
+            
         upsert_colaborador(username, fields)
         return {"status": "ok", "message": f"Customizações de '{username}' salvas no banco."}
     except Exception as e:
@@ -309,6 +314,7 @@ def get_aniversariantes_list(meses: str = Query(default="")):
                             "data_aniversario": data_aniv,
                             "diretoria_sigla": c.get("diretoria_sigla") or "",
                             "diretoria": c.get("diretoria") or "",
+                            "coordenacao_sigla": c.get("ou") or c.get("unidade") or "",
                             "coordenacao": c.get("lotacao") or c.get("department") or "",
                             "email": c.get("mail") or ""
                         })
@@ -419,6 +425,7 @@ def auth_login(body: LoginRequest):
                 "ou":          user_info.get("ou", ""),
                 "diretoria_sigla": user_info.get("diretoria_sigla", ""),
                 "diretoria":   user_info.get("diretoria", ""),
+                "ramal":       user_info.get("telephoneNumber", ""),
                 "isAdmin":     False
             }
 

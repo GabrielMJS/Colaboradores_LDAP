@@ -11,8 +11,23 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 # ---------------------------------------------------------------
-# Conexao
+# Utilidades
 # ---------------------------------------------------------------
+
+def to_title_case(text):
+    """Converte texto para Title Case, respeitando preposições brasileiras."""
+    if not text: return text
+    exceptions = ['de', 'da', 'do', 'dos', 'das', 'e', 'em', 'para', 'com']
+    words = text.lower().split()
+    if not words: return text
+    
+    result = [words[0].capitalize()]
+    for word in words[1:]:
+        if word in exceptions:
+            result.append(word)
+        else:
+            result.append(word.capitalize())
+    return " ".join(result)
 
 def _get_conn():
     """Retorna uma conexao com o PostgreSQL usando as variaveis do .env."""
@@ -136,7 +151,7 @@ def upsert_colaborador(username: str, fields: dict):
         values = []
         for key, value in fields.items():
             if key in CAMPOS_PERMITIDOS:
-                val_to_set = value.upper() if key == "cargo" and value else value
+                val_to_set = to_title_case(value) if key == "cargo" and value else value
                 set_parts.append(f"{key} = %s")
                 values.append(val_to_set)
 
@@ -152,7 +167,7 @@ def upsert_colaborador(username: str, fields: dict):
 
         for key, value in fields.items():
             if key in CAMPOS_PERMITIDOS:
-                val_to_set = value.upper() if key == "cargo" and value else value
+                val_to_set = to_title_case(value) if key == "cargo" and value else value
                 cols.append(key)
                 vals.append(val_to_set)
                 placeholders.append("%s")
@@ -245,7 +260,7 @@ def backfill_lotacoes():
         WHERE c.unidade_sigla = d.sigla
           AND (c.lotacao IS NULL OR c.lotacao = '' OR c.lotacao = '—')
     """
-    sql_cargo = "UPDATE colaborador SET cargo = UPPER(cargo) WHERE cargo IS NOT NULL"
+    sql_cargo = "UPDATE colaborador SET cargo = INITCAP(cargo) WHERE cargo IS NOT NULL"
     
     try:
         cur.execute(sql_lotacao)
@@ -253,7 +268,7 @@ def backfill_lotacoes():
         cur.execute(sql_cargo)
         cargo_count = cur.rowcount
         conn.commit()
-        print(f"[DB] Cleanup: {lot_count} lotações preenchidas, {cargo_count} cargos em maiúsculo.")
+        print(f"[DB] Cleanup: {lot_count} lotações preenchidas, {cargo_count} cargos em Title Case.")
         return lot_count
     except Exception as e:
         print(f"[DB] Erro no backfill de lotações: {e}")
@@ -345,17 +360,24 @@ def normalize_departments(colaboradores: list) -> list:
                 c["ou"] = "—" # Fallback visual se realmente não tivermos nada
         
         # Populate Diretoria information
-        # Prioridade: valor do banco (admin) > cálculo pelo COOR_TO_DIR
-        if c.get("_db_diretoria_sigla"):
+        # Se o banco tem coordenacao_sigla, recalcula a diretoria a partir dela (COOR_TO_DIR)
+        # Se o banco tem diretoria_sigla explicitamente, ela prevalece como override final
+        if c.get("_db_coordenacao_sigla"):
+            # Admin definiu coordenação → recalcula diretoria automaticamente
+            coor = c["_db_coordenacao_sigla"]
+            dir_sigla = COOR_TO_DIR.get(coor.upper(), coor)
+            c["ou"] = coor
+        elif c.get("_db_diretoria_sigla"):
             dir_sigla = c["_db_diretoria_sigla"]
         else:
             final_ou = c.get("ou", "")
             dir_sigla = COOR_TO_DIR.get(final_ou.upper(), final_ou)
 
-        c["diretoria_sigla"] = dir_sigla
+        # Override explícito de diretoria do banco tem prioridade máxima
+        if c.get("_db_diretoria_sigla"):
+            dir_sigla = c["_db_diretoria_sigla"]
 
-        if c.get("_db_coordenacao_sigla"):
-            c["ou"] = c["_db_coordenacao_sigla"]
+        c["diretoria_sigla"] = dir_sigla
 
         reverse_map = {v: k for k, v in siglas_dict.items()}
         c["diretoria"] = reverse_map.get(dir_sigla.upper(), dir_sigla)

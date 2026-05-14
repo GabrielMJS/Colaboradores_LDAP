@@ -2,14 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
-
-// Em produção, isso virá do backend.
-// Substituído temporariamente o import.meta.glob para evitar warnings do Vite sobre a pasta /public
-const CAPAS = [
-  { id: 1, nome: "Assinatura 30 Anos.png", arquivo: "/assinatura/Assinatura 30 Anos.png" },
-  { id: 2, nome: "Assinatura Independência.png", arquivo: "/assinatura/Assinatura Independência.png" },
-  { id: 3, nome: "Assinatura Padrão.png", arquivo: "/assinatura/Assinatura Padrão.png" }
-];
+import { fetchCapas } from "../services/api";
 
 // Removidas as larguras hardcoded para podermos usar o tamanho real da imagem
 
@@ -20,6 +13,7 @@ export default function Assinaturas() {
   const canvasRef = useRef(null);
 
   const [capaId, setCapaId] = useState("");
+  const [capas, setCapas] = useState([]);
   const [ramal, setRamal] = useState("");
   const [email, setEmail] = useState("");
   const [preview, setPreview] = useState(null);
@@ -30,18 +24,22 @@ export default function Assinaturas() {
     nome: user.displayName || user.username || "Usuário não identificado",
     cargo: user.title || "Cargo não informado",
     lotacao: user.department || "Lotação não informada",
+    diretoria: user.diretoria || user.diretoria_sigla || "",
+    coordenacao: user.ou || "",
     email: user.email || "",
+    ramal: user.ramal || "",
   } : null;
 
-  // Ao montar, preenche o e-mail (e ramal, se existir)
+  // Ao montar, preenche o e-mail e busca capas
   useEffect(() => {
     if (colaborador) {
       setEmail(colaborador.email);
-      // Se houver ramal salvo no LDAP futuro, pode preencher: setRamal(user.ramal || "");
+      if (colaborador.ramal) setRamal(colaborador.ramal);
     }
+    fetchCapas().then(setCapas).catch(() => setCapas([]));
   }, [user]);
 
-  const capa = CAPAS.find(c => c.id === Number(capaId));
+  const capa = capas.find(c => c.id === Number(capaId));
 
   function gerarAssinatura() {
     if (!colaborador || !capa) return;
@@ -62,13 +60,14 @@ export default function Assinaturas() {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
       // Usando proporções para ficar perfeito em qualquer resolução
-      const textX = canvas.width * 0.305; // Ajuste horizontal (após a logo)
-      let currentY = canvas.height * 0.30; // Ajuste vertical inicial
-      const lineSpacing = canvas.height * 0.14; // Espaço entre linhas
+      const textX = canvas.width * 0.285 - 5;
+      let currentY = canvas.height * 0.31 - 10;
+      const lineSpacing = canvas.height * 0.11; // Espaço entre linhas
 
       // Tamanhos de fonte proporcionais
-      const fontNome = Math.round(canvas.height * 0.110) + 2;
+      const fontNome = Math.round(canvas.height * 0.110) + 4;
       const fontMedia = Math.round(canvas.height * 0.075);
+      const fontPeq = fontMedia - 2; // Cargo, coordenação, diretoria, ramal/email
       const fontAeb = Math.round(canvas.height * 0.098);
 
       // Nome
@@ -77,23 +76,29 @@ export default function Assinaturas() {
       ctx.fillText(colaborador.nome, textX, currentY);
       currentY += lineSpacing;
 
-      // Cargo (Suporte CTI)
-      ctx.font = `${fontMedia}px Verdana, sans-serif`;
+      // Cargo
+      ctx.font = `${fontPeq}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(colaborador.cargo, textX, currentY);
       currentY += lineSpacing - (canvas.height * 0.01);
 
-      // Lotação (Coordenação de Tecnologia da Informação)
-      ctx.font = `${fontMedia}px Verdana, sans-serif`;
+      // Coordenação / Lotação
+      ctx.font = `${fontPeq}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(colaborador.lotacao, textX, currentY);
-      currentY += lineSpacing + (canvas.height * 0.02); // Espaço extra
+      currentY += lineSpacing;
+
+      // Diretoria
+      ctx.font = `${fontPeq}px Verdana, sans-serif`;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText(colaborador.diretoria || "", textX, currentY);
+      currentY += lineSpacing + (canvas.height * 0.01);
 
       // Agência Espacial Brasileira
       ctx.font = `bold ${fontAeb}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText("Agência Espacial Brasileira", textX, currentY);
-      currentY += lineSpacing;
+      currentY += lineSpacing + (canvas.height * 0.01);
 
       // Tratamento do ramal: garantindo que começará com (61) 2033 -
       const apenasDigitos = ramal.replace(/\D/g, '');
@@ -101,7 +106,7 @@ export default function Assinaturas() {
       const ramalFormatado = `(61) 2033-${digitosFinais || "XXXX"}`;
 
       // Ramal e email
-      ctx.font = `${fontMedia}px Verdana, sans-serif`;
+      ctx.font = `${fontPeq}px Verdana, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(`${ramalFormatado}    ${email}`, textX, currentY);
 
@@ -137,42 +142,35 @@ export default function Assinaturas() {
       ctx.stroke();
 
       // Textos
-      const textX = 195;
-      const startY = 45;
-      const lineH = 22;
+      const textX = 176;
+      const startY = 40;
+      const lineH = 18;
 
-      ctx.font = "bold 20px Verdana, sans-serif";
+      ctx.font = "bold 22px Verdana, sans-serif";
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(colaborador.nome, textX, startY);
 
-      ctx.font = "13px Verdana, sans-serif";
+      ctx.font = "11px Verdana, sans-serif";
       ctx.fillStyle = "#90caf9";
       ctx.fillText(colaborador.cargo, textX, startY + lineH);
 
-      ctx.font = "13px Verdana, sans-serif";
+      ctx.font = "11px Verdana, sans-serif";
       ctx.fillStyle = "#CCDDEE";
+      ctx.fillText(colaborador.lotacao, textX, startY + lineH * 2);
 
-      // Quebra texto longo da lotação
-      const lotacao = colaborador.lotacao;
-      if (lotacao.length > 45) {
-        const mid = lotacao.lastIndexOf(" ", 45);
-        ctx.fillText(lotacao.substring(0, mid), textX, startY + lineH * 2);
-        ctx.fillText(lotacao.substring(mid + 1), textX, startY + lineH * 3 - 4);
-        ctx.font = "bold 14px Verdana, sans-serif";
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 4 - 4);
-        ctx.font = "13px Verdana, sans-serif";
-        ctx.fillStyle = "#CCDDEE";
-        ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 5 - 4);
-      } else {
-        ctx.fillText(lotacao, textX, startY + lineH * 2);
-        ctx.font = "bold 14px Verdana, sans-serif";
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 3);
-        ctx.font = "13px Verdana, sans-serif";
-        ctx.fillStyle = "#CCDDEE";
-        ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 4);
-      }
+      // Diretoria
+      ctx.font = "11px Verdana, sans-serif";
+      ctx.fillStyle = "#CCDDEE";
+      ctx.fillText(colaborador.diretoria || "", textX, startY + lineH * 3);
+
+      ctx.font = "bold 14px Verdana, sans-serif";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 4 + 3);
+
+      // Ramal e email
+      ctx.font = "11px Verdana, sans-serif";
+      ctx.fillStyle = "#CCDDEE";
+      ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 5 + 6);
 
       setPreview(canvas.toDataURL("image/png"));
     };
@@ -417,7 +415,7 @@ export default function Assinaturas() {
                     >
                       Selecionar capa...
                     </div>
-                    {CAPAS.map(c => (
+                    {capas.map(c => (
                       <div
                         key={c.id}
                         onClick={() => { setCapaId(c.id); setCapaDropdownOpen(false); }}
@@ -455,11 +453,12 @@ export default function Assinaturas() {
               <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Inter', sans-serif", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>
                 Dados puxados automaticamente
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px 40px" }}>
                 {[
                   { label: "Nome", value: colaborador.nome },
-                  { label: "Área / Cargo", value: colaborador.cargo },
-                  { label: "Diretoria / Lotação", value: colaborador.lotacao },
+                  { label: "Diretoria", value: colaborador.diretoria },
+                  { label: "Cargo", value: colaborador.cargo },
+                  { label: "Coordenação", value: colaborador.lotacao },
                 ].map(f => (
                   <div key={f.label}>
                     <span style={{ ...labelStyle, marginBottom: 4 }}>{f.label}</span>

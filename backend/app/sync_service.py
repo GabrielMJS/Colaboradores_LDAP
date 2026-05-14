@@ -14,7 +14,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from ldap_service import LDAPService
-from database_service import _get_conn, backfill_lotacoes, COOR_TO_DIR
+from database_service import _get_conn, backfill_lotacoes, COOR_TO_DIR, to_title_case
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -84,7 +84,7 @@ def sync_ldap_to_db():
                     WHERE username = %s
                 """, (
                     nome, email,
-                    cargo_ldap.upper() if cargo_ldap else None,
+                    to_title_case(cargo_ldap) if cargo_ldap else None,
                     dept_ldap, ou_ldap,
                     dir_sigla or None,
                     coor_sigla or None,
@@ -100,7 +100,7 @@ def sync_ldap_to_db():
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
                 """, (
                     username, nome, email,
-                    cargo_ldap.upper() if cargo_ldap else None,
+                    to_title_case(cargo_ldap) if cargo_ldap else None,
                     dept_ldap, ou_ldap,
                     dir_sigla or None,
                     coor_sigla or None,
