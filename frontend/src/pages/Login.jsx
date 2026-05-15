@@ -1,17 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 
 function StarsBg() {
-  const stars = Array.from({ length: 60 }, (_, i) => ({
+  const stars = useMemo(() => Array.from({ length: 60 }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
     y: Math.random() * 100,
     size: Math.random() * 2 + 0.5,
     opacity: Math.random() * 0.5 + 0.2,
     duration: Math.random() * 3 + 2,
-  }));
+  })), []);
 
   return (
     <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
@@ -26,6 +26,8 @@ function StarsBg() {
           background: "white",
           opacity: s.opacity,
           animation: `twinkle ${s.duration}s ease-in-out infinite alternate`,
+          willChange: "opacity",
+          transform: "translateZ(0)",
         }} />
       ))}
     </div>

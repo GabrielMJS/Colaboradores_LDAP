@@ -5,6 +5,34 @@ import Stars from "../components/Stars";
 import ColaboradorRow from "../components/ColaboradorRow";
 import { fetchColaboradores } from "../services/api";
 
+function extrairRamalCurto(telephoneNumber) {
+  if (!telephoneNumber) return "";
+  const str = String(telephoneNumber).trim();
+  if (str.includes("-")) return str.split("-").pop();
+  return str;
+}
+
+function normalizarColaborador(c, index) {
+  const nome = c.displayName || c.cn || "Sem nome";
+  let ramal = extrairRamalCurto(c.telephoneNumber);
+  const email = c.mail || "";
+  const lotacao = (c.department || "").trim();
+  const unidade = (c.ou || c.department || "").trim();
+  const diretoria = (c.diretoria_sigla || "").trim();
+
+  return {
+    id:      c.sAMAccountName || c.dn || index,
+    nome,
+    diretoria,
+    unidade,
+    lotacao,
+    ramal,
+    email,
+    cargo:   c.title || "",
+    foto:    c.foto || null,
+  };
+}
+
 export default function Home() {
   const [colaboradores, setColaboradores] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -68,49 +96,11 @@ export default function Home() {
   const itemsPerPage = 20;
   const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginated = filtered.slice(startIndex, startIndex + itemsPerPage);
+  const paginated = useMemo(() => {
+    return filtered.slice(startIndex, startIndex + itemsPerPage).map((c, i) => normalizarColaborador(c, startIndex + i));
+  }, [filtered, startIndex]);
 
-  function extrairRamalCurto(telephoneNumber) {
-    // LDAP retorna "2033-4070" -> extraímos "4070"
-    if (!telephoneNumber) return "";
-    const str = String(telephoneNumber).trim();
-    if (str.includes("-")) return str.split("-").pop();
-    return str;
-  }
 
-  /**
-   * Normaliza dados do colaborador para exibição.
-   *
-   * HIERARQUIA DE DADOS (prioridade):
-   *   1º LDAP (sempre prevalece)
-   *   2º Painel Admin (modificações feitas por admins sobrescrevem/complementam o LDAP)
-   */
-  function normalizarColaborador(c, index) {
-    const nome = c.displayName || c.cn || "Sem nome";
-
-    // Ramal: LDAP (curto)
-    let ramal = extrairRamalCurto(c.telephoneNumber);
-
-    // Email: LDAP
-    const email = c.mail || "";
-
-    // Lotação é o nome completo que vem no department
-    const lotacao = (c.department || "").trim();
-    const unidade = (c.ou || c.department || "").trim();
-    const diretoria = (c.diretoria_sigla || "").trim();
-
-    return {
-      id:      c.sAMAccountName || c.dn || index,
-      nome,
-      diretoria,
-      unidade,
-      lotacao,
-      ramal,
-      email,
-      cargo:   c.title || "",
-      foto:    c.foto || null,
-    };
-  }
 
   return (
     <div style={{
@@ -208,8 +198,8 @@ export default function Home() {
               </div>
             )}
 
-            {!carregando && !erro && paginated.map((c, i) => (
-              <ColaboradorRow key={c.sAMAccountName || i} colaborador={normalizarColaborador(c, startIndex + i)} />
+            {!carregando && !erro && paginated.map((c) => (
+              <ColaboradorRow key={c.id} colaborador={c} />
             ))}
           </div>
 

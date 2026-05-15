@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import Avatar from "./Avatar";
 import { useTheme } from "../context/ThemeContext";
 
-export default function ColaboradorRow({ colaborador }) {
+const ColaboradorRow = memo(({ colaborador }) => {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const theme = useTheme();
@@ -178,4 +178,6 @@ export default function ColaboradorRow({ colaborador }) {
       )}
     </div>
   );
-}
+});
+
+export default ColaboradorRow;

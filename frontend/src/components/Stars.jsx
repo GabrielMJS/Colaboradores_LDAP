@@ -28,6 +28,8 @@ export default function Stars() {
           background: "white",
           opacity: s.opacity,
           animation: `twinkle ${s.duration}s ease-in-out infinite alternate`,
+          willChange: "opacity",
+          transform: "translateZ(0)",
         }} />
       ))}
     </div>
