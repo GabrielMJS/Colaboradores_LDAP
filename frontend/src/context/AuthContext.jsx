@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from "react";
-import { loginLDAP } from "../services/api";
+import { loginLDAP, logoutLDAP } from "../services/api";
 
 const AuthContext = createContext();
 
@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
     try {
       const res = await loginLDAP(username, password);
       if (res.status === "ok") {
-        const userData = { ...res.user, token: res.token };
+        const userData = { ...res.user };
         setUser(userData);
         localStorage.setItem("aeb_user", JSON.stringify(userData));
         setError("");
@@ -29,7 +29,12 @@ export function AuthProvider({ children }) {
     }
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await logoutLDAP();
+    } catch (e) {
+      console.error("Erro ao deslogar no servidor:", e);
+    }
     setUser(null);
     localStorage.removeItem("aeb_user");
   }

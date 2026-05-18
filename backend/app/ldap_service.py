@@ -8,6 +8,7 @@ import io
 import base64
 from typing import Optional
 from ldap3 import Server, Connection, ALL, SUBTREE
+from ldap3.utils.conv import escape_filter_chars
 from ldap3.core.exceptions import LDAPException, LDAPBindError, LDAPSocketOpenError
 from PIL import Image, ImageOps
 
@@ -16,8 +17,8 @@ class LDAPService:
     def __init__(self):
         self.host          = os.getenv("LDAP_HOST", "ldap.aeb.gov.br")
         self.port          = int(os.getenv("LDAP_PORT", "389"))
-        self.bind_dn       = os.getenv("LDAP_BIND_DN", "CN=Eventos Dev,OU=SERVICO,OU=USUARIOS,OU=AEB,DC=aeb,DC=gov,DC=br")
-        self.bind_password = os.getenv("LDAP_BIND_PASSWORD", "")
+        self.bind_dn       = os.getenv("LDAP_BIND_DN")
+        self.bind_password = os.getenv("LDAP_BIND_PASSWORD")
         self.base_dn       = os.getenv("LDAP_BASE_DN", "OU=USUARIOS,OU=AEB,DC=aeb,DC=gov,DC=br")
 
         # Atributos buscados em TODAS as consultas
@@ -74,7 +75,9 @@ class LDAPService:
             filtro_ativo = "(!(userAccountControl:1.2.840.113556.1.4.803:=2))"
 
             if unidade:
-                search_filter = f"(&(objectClass=user)(mail=*){filtro_ativo}(department={unidade}))"
+                # Escapa caracteres especiais no filtro para evitar LDAP Injection
+                unidade_escaped = escape_filter_chars(unidade)
+                search_filter = f"(&(objectClass=user)(mail=*){filtro_ativo}(department={unidade_escaped}))"
             else:
                 search_filter = f"(&(objectClass=user)(mail=*){filtro_ativo})"
 
@@ -103,9 +106,10 @@ class LDAPService:
         """
         conn = self._get_service_connection()
         try:
+            user_id_escaped = escape_filter_chars(user_id)
             conn.search(
                 search_base=self.base_dn,
-                search_filter=f"(sAMAccountName={user_id})",
+                search_filter=f"(sAMAccountName={user_id_escaped})",
                 search_scope=SUBTREE,
                 attributes=self.atributos,
             )

@@ -14,7 +14,8 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from ldap_service import LDAPService
-from database_service import _get_conn, backfill_lotacoes, COOR_TO_DIR, to_title_case
+from database_service import get_db_conn, backfill_lotacoes, COOR_TO_DIR
+from utils import to_title_case
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,90 +34,91 @@ def sync_ldap_to_db():
     ldap_users = service.search_all_users()
     print(f"[SYNC] {len(ldap_users)} usuarios ativos encontrados no LDAP.")
 
-    conn = _get_conn()
-    cur = conn.cursor()
+    with get_db_conn() as conn:
+        cur = conn.cursor()
 
-    inseridos = 0
-    atualizados = 0
-    erros = 0
+        inseridos = 0
+        atualizados = 0
+        erros = 0
 
-    for user in ldap_users:
-        username = user.get("sAMAccountName", "").strip()
-        if not username:
-            continue
+        for user in ldap_users:
+            username = user.get("sAMAccountName", "").strip()
+            if not username:
+                continue
 
-        nome = user.get("displayName") or user.get("cn") or ""
-        email = user.get("mail") or ""
-        cargo_ldap = user.get("title") or ""
-        dept_ldap = user.get("department") or ""
+            nome = user.get("displayName") or user.get("cn") or ""
+            email = user.get("mail") or ""
+            cargo_ldap = user.get("title") or ""
+            dept_ldap = user.get("department") or ""
 
-        # ou: usa atributo direto; se vazio, extrai do DN (padrão no AD)
-        ou_attr = (user.get("ou") or "").strip()
-        if not ou_attr:
-            import re
-            dn = user.get("distinguishedName") or user.get("dn") or ""
-            m = re.search(r"(?i)OU=([^,]+)", dn)
-            ou_attr = m.group(1).strip() if m else ""
-        ou_ldap = ou_attr.upper()
+            # ou: usa atributo direto; se vazio, extrai do DN (padrão no AD)
+            ou_attr = (user.get("ou") or "").strip()
+            if not ou_attr:
+                import re
+                dn = user.get("distinguishedName") or user.get("dn") or ""
+                m = re.search(r"(?i)OU=([^,]+)", dn)
+                ou_attr = m.group(1).strip() if m else ""
+            ou_ldap = ou_attr.upper()
 
-        # Calcula diretoria e coordenacao a partir da sigla da unidade
-        dir_sigla = COOR_TO_DIR.get(ou_ldap, ou_ldap) if ou_ldap else ""
-        coor_sigla = ou_ldap
+            # Calcula diretoria e coordenacao a partir da sigla da unidade
+            dir_sigla = COOR_TO_DIR.get(ou_ldap, ou_ldap) if ou_ldap else ""
+            coor_sigla = ou_ldap
 
-        try:
-            cur.execute(
-                "SELECT id FROM colaborador WHERE username = %s", (username,)
-            )
-            existing = cur.fetchone()
+            try:
+                cur.execute(
+                    "SELECT id FROM colaborador WHERE username = %s", (username,)
+                )
+                existing = cur.fetchone()
 
-            if existing:
-                # UPDATE — atualiza campos do LDAP, preserva overrides do admin com COALESCE
-                cur.execute("""
-                    UPDATE colaborador
-                    SET nome_completo     = %s,
-                        email            = %s,
-                        cargo            = COALESCE(cargo, %s),
-                        lotacao          = COALESCE(lotacao, %s),
-                        unidade_sigla    = COALESCE(unidade_sigla, %s),
-                        diretoria_sigla  = COALESCE(diretoria_sigla, %s),
-                        coordenacao_sigla = COALESCE(coordenacao_sigla, %s),
-                        atualizado_em    = CURRENT_TIMESTAMP
-                    WHERE username = %s
-                """, (
-                    nome, email,
-                    to_title_case(cargo_ldap) if cargo_ldap else None,
-                    dept_ldap, ou_ldap,
-                    dir_sigla or None,
-                    coor_sigla or None,
-                    username
-                ))
-                atualizados += 1
-            else:
-                # INSERT — novo colaborador
-                cur.execute("""
-                    INSERT INTO colaborador
-                        (username, nome_completo, email, cargo, lotacao,
-                         unidade_sigla, diretoria_sigla, coordenacao_sigla, visivel)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
-                """, (
-                    username, nome, email,
-                    to_title_case(cargo_ldap) if cargo_ldap else None,
-                    dept_ldap, ou_ldap,
-                    dir_sigla or None,
-                    coor_sigla or None,
-                ))
-                inseridos += 1
+                if existing:
+                    # UPDATE — atualiza campos do LDAP, preserva overrides do admin com COALESCE
+                    cur.execute("""
+                        UPDATE colaborador
+                        SET nome_completo     = %s,
+                            email            = %s,
+                            cargo            = COALESCE(cargo, %s),
+                            lotacao          = COALESCE(lotacao, %s),
+                            unidade_sigla    = COALESCE(unidade_sigla, %s),
+                            diretoria_sigla  = COALESCE(diretoria_sigla, %s),
+                            coordenacao_sigla = COALESCE(coordenacao_sigla, %s),
+                            atualizado_em    = CURRENT_TIMESTAMP
+                        WHERE username = %s
+                    """, (
+                        nome, email,
+                        to_title_case(cargo_ldap) if cargo_ldap else None,
+                        dept_ldap, ou_ldap,
+                        dir_sigla or None,
+                        coor_sigla or None,
+                        username
+                    ))
+                    atualizados += 1
+                else:
+                    # INSERT — novo colaborador
+                    cur.execute("""
+                        INSERT INTO colaborador
+                            (username, nome_completo, email, cargo, lotacao,
+                             unidade_sigla, diretoria_sigla, coordenacao_sigla, visivel)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                    """, (
+                        username, nome, email,
+                        to_title_case(cargo_ldap) if cargo_ldap else None,
+                        dept_ldap, ou_ldap,
+                        dir_sigla or None,
+                        coor_sigla or None,
+                    ))
+                    inseridos += 1
 
-        except Exception as e:
-            erros += 1
-            print(f"[SYNC] Erro ao processar '{username}': {e}")
-            conn.rollback()
-            conn = _get_conn()
-            cur = conn.cursor()
+            except Exception as e:
+                erros += 1
+                print(f"[SYNC] Erro ao processar '{username}': {e}")
+                conn.rollback()
+                # O pool gerencia a saúde das conexões, não precisamos re-abrir manualmente aqui
+                # mas vamos garantir que o cursor seja resetado para a próxima iteração
+                cur = conn.cursor()
 
-    conn.commit()
-    cur.close()
-    conn.close()
+            conn.commit()
+    
+    # Cursor e conexão (devolução ao pool) são fechados pelo context manager
 
     print(f"[SYNC] Concluido: {inseridos} novos, {atualizados} atualizados, {erros} erros.")
     return {"inseridos": inseridos, "atualizados": atualizados, "erros": erros}

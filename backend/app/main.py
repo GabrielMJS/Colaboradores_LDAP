@@ -1,7 +1,10 @@
 import os
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from ldap_service import LDAPService
@@ -19,26 +22,46 @@ import threading
 import time
 import jwt
 from fastapi import Depends, HTTPException, status, UploadFile, File
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 import shutil
 from pathlib import Path
 import base64
-import io
 
 load_dotenv(override=True)
 
-SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 security = HTTPBearer()
+
+limiter = Limiter(key_func=get_remote_address)
+
+# Configurações de diretório e sincronização
+BASE_DIR = Path(__file__).resolve().parent.parent
+CAPAS_DIR = BASE_DIR.parent / "frontend" / "public" / "assinatura"
+SYNC_INTERVAL_HOURS = 6
 
 def create_access_token(data: dict):
     to_encode = data.copy()
     to_encode.update({"exp": time.time() + 3600 * 24})  # 24h
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-def get_current_user(auth: HTTPAuthorizationCredentials = Depends(security)):
+def get_current_user(request: Request):
+    token = request.cookies.get("access_token")
+    
+    # Fallback para Authorization Header (suporte a ferramentas de teste)
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token ausente ou expirado",
+        )
+        
     try:
-        payload = jwt.decode(auth.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except Exception:
         raise HTTPException(
@@ -54,8 +77,7 @@ def require_admin(user = Depends(get_current_user)):
         )
     return user
 
-# Intervalo de sync automatico (em horas)
-SYNC_INTERVAL_HOURS = 6
+    return user
 
 from contextlib import asynccontextmanager
 
@@ -91,10 +113,14 @@ async def lifespan(app: FastAPI):
     # Shutdown logic (se necessário) pode vir aqui
 
 app = FastAPI(title="AEB Colaboradores API", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -129,34 +155,64 @@ def ldap_test():
         return {"status": "error", "message": str(e)}
 
 @app.get("/api/colaboradores")
-def get_colaboradores(unidade: Optional[str] = Query(default=None)):
-    """Página inicial — aplica overrides do banco e filtra ocultos."""
+def get_colaboradores(
+    unidade: Optional[str] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=1000, ge=1, le=5000)
+):
+    """Página inicial — aplica overrides do banco e filtra ocultos com paginação."""
     try:
         service = LDAPService()
         colaboradores = service.search_all_users(unidade=unidade)
         
-        # O banco de dados agora contém a lógica de visibilidade (visivel=False se não estiver na planilha)
+        # Aplica overrides e normalização
         colaboradores = apply_db_overrides(colaboradores, filter_hidden=True)
         colaboradores = normalize_departments(colaboradores)
         
-        return {"status": "ok", "total": len(colaboradores), "data": colaboradores}
+        total = len(colaboradores)
+        start = (page - 1) * size
+        end = start + size
+        paginated_data = colaboradores[start:end]
+        
+        return {
+            "status": "ok", 
+            "total": total, 
+            "page": page,
+            "size": size,
+            "data": paginated_data
+        }
     except Exception as e:
-        return {"status": "error", "message": str(e), "data": []}
+        return {"status": "error", "message": str(e), "data": [], "total": 0}
 
 @app.get("/api/admin/colaboradores")
-def get_colaboradores_admin(unidade: Optional[str] = Query(default=None), _user = Depends(require_admin)):
-    """Admin — retorna TODOS (incluindo ocultos) com overrides do banco aplicados."""
+def get_colaboradores_admin(
+    unidade: Optional[str] = Query(default=None), 
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=1000, ge=1, le=5000),
+    _user = Depends(require_admin)
+):
+    """Admin — retorna TODOS com paginação."""
     try:
         service = LDAPService()
         colaboradores = service.search_all_users(unidade=unidade)
         
-        # No Admin, usamos apply_db_overrides com filter_hidden=False para ver todo mundo
         colaboradores = apply_db_overrides(colaboradores, filter_hidden=False)
         colaboradores = normalize_departments(colaboradores)
 
-        return {"status": "ok", "total": len(colaboradores), "data": colaboradores}
+        total = len(colaboradores)
+        start = (page - 1) * size
+        end = start + size
+        paginated_data = colaboradores[start:end]
+
+        return {
+            "status": "ok", 
+            "total": total, 
+            "page": page,
+            "size": size,
+            "data": paginated_data
+        }
     except Exception as e:
-        return {"status": "error", "message": str(e), "data": []}
+        return {"status": "error", "message": str(e), "data": [], "total": 0}
 
 @app.put("/api/admin/colaboradores/{username}/override")
 def set_override(username: str, body: OverrideRequest, _user = Depends(require_admin)):
@@ -322,7 +378,6 @@ def get_aniversariantes_list(meses: str = Query(default="")):
     except Exception as e:
         return {"status": "error", "message": str(e), "data": []}
 
-CAPAS_DIR = Path(__file__).parent.parent.parent / "frontend" / "public" / "assinatura"
 
 @app.get("/api/capas")
 def get_capas():
@@ -372,11 +427,12 @@ def delete_capa(filename: str, _user = Depends(require_admin)):
         return {"status": "error", "message": str(e)}
 
 @app.post("/auth/login")
-def auth_login(body: LoginRequest):
+@limiter.limit("5/minute")
+def auth_login(request: Request, body: LoginRequest, response: Response):
     try:
-        # Credenciais Admin de fallback (podem ser movidas para .env)
-        ADMIN_USER = os.getenv("ADMIN_USER", "admin.aeb")
-        ADMIN_PASS = os.getenv("ADMIN_PASS", "AEB@admin2024")
+        # Credenciais Admin de fallback (movidas para .env)
+        ADMIN_USER = os.getenv("ADMIN_USER")
+        ADMIN_PASS = os.getenv("ADMIN_PASS")
 
         is_admin = False
         user_payload = {}
@@ -432,13 +488,30 @@ def auth_login(body: LoginRequest):
         # Gera o token JWT
         token = create_access_token(user_payload)
 
+        # Configura cookie HttpOnly para segurança contra XSS
+        response.set_cookie(
+            key="access_token",
+            value=token,
+            httponly=True,
+            max_age=3600 * 24, # 24h
+            expires=3600 * 24,
+            samesite="lax",    # Lax permite redirecionamentos comuns mas protege contra CSRF básico
+            secure=False       # Setar para True se usar HTTPS (recomendado em prod)
+        )
+
         return {
             "status": "ok",
-            "token": token,
+            "token": token, # Mantido para compatibilidade temporária se necessário
             "user": user_payload
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+@app.post("/auth/logout")
+def auth_logout(response: Response):
+    """Limpa o cookie de autenticação."""
+    response.delete_cookie("access_token")
+    return {"status": "ok", "message": "Logout realizado com sucesso"}
 
 if __name__ == "__main__":
     import uvicorn
