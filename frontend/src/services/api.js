@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:8005";
+const BASE_URL = "http://localhost:8000";
 const IS_PRODUCTION = false; // Ajustar se necessário
 
 function getHeaders() {
