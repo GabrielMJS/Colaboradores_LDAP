@@ -199,11 +199,29 @@ def apply_db_overrides(colaboradores: list, filter_hidden: bool = True) -> list:
         cur.close()
 
     db_map = {row["username"]: dict(row) for row in rows}
+    
+    import json
+    import os
+    name_overrides = {}
+    overrides_file = os.path.join(os.path.dirname(__file__), "name_overrides.json")
+    if os.path.exists(overrides_file):
+        try:
+            with open(overrides_file, "r", encoding="utf-8") as f:
+                name_overrides = json.load(f)
+        except Exception:
+            pass
 
     result = []
     for c in colaboradores:
         username = c.get("sAMAccountName", "")
         db_data = db_map.get(username, {})
+        
+        if username in name_overrides:
+            c["displayName"] = name_overrides[username]
+            c["cn"] = name_overrides[username]
+            if db_data:
+                db_data["nome_completo"] = name_overrides[username]
+
 
         # Campos do banco sobrescrevem LDAP (se admin editou)
         if db_data.get("ramal"):

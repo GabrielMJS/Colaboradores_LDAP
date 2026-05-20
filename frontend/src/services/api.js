@@ -1,4 +1,5 @@
 const BASE_URL = "";
+
 const IS_PRODUCTION = false; // Ajustar se necessário
 
 function getHeaders() {
