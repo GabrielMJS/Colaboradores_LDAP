@@ -3,7 +3,17 @@ const BASE_URL = "";
 const IS_PRODUCTION = false; // Ajustar se necessário
 
 function getHeaders() {
-  return { "Content-Type": "application/json" };
+  const headers = { "Content-Type": "application/json" };
+  const savedUser = localStorage.getItem("aeb_user");
+  if (savedUser) {
+    try {
+      const user = JSON.parse(savedUser);
+      if (user.token) {
+        headers["Authorization"] = `Bearer ${user.token}`;
+      }
+    } catch (e) {}
+  }
+  return headers;
 }
 
 // ------------------------------------------------------------------
@@ -145,6 +155,43 @@ export async function deleteCapa(filename) {
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.message || "Erro ao excluir a capa");
+  }
+  return res.json();
+}
+
+// ------------------------------------------------------------------
+// Fotos de Usuário
+// ------------------------------------------------------------------
+export async function uploadUserPhoto(username, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const headers = getHeaders();
+  delete headers["Content-Type"]; // Allow browser to set boundary
+
+  const res = await fetch(`${BASE_URL}/api/admin/colaboradores/${username}/foto`, {
+    method: "POST",
+    headers,
+    body: formData,
+    credentials: "include"
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Erro ao fazer upload da foto");
+  }
+  return res.json();
+}
+
+export async function deleteUserPhoto(username) {
+  const res = await fetch(`${BASE_URL}/api/admin/colaboradores/${username}/foto`, {
+    method: "DELETE",
+    headers: getHeaders(),
+    credentials: "include"
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Erro ao excluir a foto");
   }
   return res.json();
 }
