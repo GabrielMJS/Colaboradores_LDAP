@@ -1,104 +1,270 @@
-# 🛰 AEB Colaboradores - Sistema de Assinaturas
+# 🛰 AEB Colaboradores — Sistema de Colaboradores e Assinaturas
 
-Uma plataforma web moderna e integrada para a Agência Espacial Brasileira (AEB), focada em automatizar e padronizar a geração de assinaturas de e-mail corporativas utilizando dados em tempo real do **Active Directory / LDAP**.
+Uma plataforma web moderna e integrada para a **Agência Espacial Brasileira (AEB)**, focada em consulta de colaboradores, geração de assinaturas de e-mail corporativas padronizadas e administração de dados, com integração em tempo real ao **Active Directory / LDAP**.
 
 ---
 
-## 📌 Projeto no Geral
+## 📌 Visão Geral
 
 O projeto é dividido em duas partes principais:
-1. **Frontend (React + Vite)**: Interface gráfica com temas dinâmicos (claro/escuro), consumo da API e renderização via Canvas HTML5 para gerar as imagens `.png` das assinaturas instantaneamente no navegador do usuário.
-2. **Backend (Python + FastAPI)**: API responsável pela comunicação direta e segura com o servidor LDAP corporativo para validação de credenciais, resgate de atributos (nome, cargo, lotação, etc.) e salvamento de configurações avançadas (overrides administrativos).
 
-### 📂 Estrutura de Diretórios
+- **Frontend (React + Vite):** Interface gráfica com temas dinâmicos (claro/escuro), consumo da API e renderização via Canvas HTML5 para gerar imagens `.png` das assinaturas diretamente no navegador.
+- **Backend (Python + FastAPI):** API responsável pela comunicação com o servidor LDAP corporativo para validação de credenciais, resgate de atributos (nome, cargo, lotação, etc.) e salvamento de configurações administrativas (overrides).
+
+---
+
+## 📂 Estrutura de Diretórios
+
 ```text
-aeb-colaboradores/
-├── backend/                # API em Python (FastAPI)
-│   ├── app/                
-│   │   ├── main.py         # Arquivo principal de rotas e inicialização
-│   │   ├── ldap_service.py # Motor de conexão, consultas e bind LDAP
-│   │   └── overrides_service.py # Gerencia dados customizados de colaboradores
-│   ├── requirements.txt    # Lista de dependências Python
-│   └── .env                # Variáveis de ambiente (credenciais LDAP/banco)
+Colaboradores_LDAP/
+├── backend/
+│   ├── app/
+│   │   ├── main.py             # Rotas e inicialização da API
+│   │   ├── ldap_service.py     # Conexão, consultas e bind LDAP
+│   │   ├── database_service.py # Overrides e conexão PostgreSQL
+│   │   ├── sync_service.py     # Sincronização LDAP → banco
+│   │   ├── models.py           # Modelos de dados
+│   │   └── utils.py            # Utilitários gerais
+│   ├── requirements.txt        # Dependências Python
+│   ├── Dockerfile.prod         # Imagem de produção
+│   └── .env                    # Variáveis de ambiente
 │
-├── frontend/               # Interface Web em React + Vite
-│   ├── public/             
-│   │   └── assinatura/     # Diretório que hospeda os templates (fundos da assinatura)
-│   ├── src/                
-│   │   ├── components/     # Peças reutilizáveis da UI (Headers, Cards, etc.)
-│   │   ├── context/        # Gerenciadores de estado global (Auth, Theme)
-│   │   ├── pages/          # Páginas (Home, Login, Assinaturas, Admin)
-│   │   └── services/       # Cliente HTTP para requisitar o Backend
-│   ├── package.json        # Dependências do frontend
-│   └── vite.config.js      # Configurações do Vite
+├── frontend/
+│   ├── public/
+│   │   └── assinatura/         # Templates (fundos da assinatura)
+│   ├── src/
+│   │   ├── components/         # Componentes reutilizáveis
+│   │   ├── context/            # Estado global (Auth, Theme)
+│   │   ├── pages/              # Páginas (Home, Login, Assinaturas, Admin)
+│   │   └── services/           # Cliente HTTP (api.js)
+│   ├── nginx.conf              # Configuração Nginx do container
+│   ├── Dockerfile.prod         # Imagem de produção
+│   └── vite.config.js
+│
+└── docker-compose.yml          # Orquestração dos containers
 ```
 
-### 🚀 Como Rodar o Projeto
+---
 
-**1. Iniciando o Backend:**
-Abra o terminal na pasta raiz e siga as instruções para iniciar a API Python:
-```powershell
+## 🏗 Arquitetura de Produção
+
+```
+Usuário
+   ↓
+BigIP (F5) — https://colaboradores.aeb.gov.br
+   ↓
+Nginx HOST (porta 8000) — SVLPDPSC (192.168.12.68)
+   ↓
+Docker: sis-colaborador-frontend (porta 3000→80)
+   Nginx interno:
+   ├── /*          → serve React estático
+   ├── /api/       → proxy → backend:8000
+   ├── /auth/      → proxy → backend:8000
+   └── /admin/     → proxy → backend:8000
+         ↓
+Docker: sis-colaborador-backend (porta 8000, interno)
+   FastAPI + Uvicorn
+         ↓
+   ├── LDAP: ldap.aeb.gov.br:389
+   └── PostgreSQL: 192.168.12.68:5432
+```
+
+---
+
+## 🚀 Produção — Subindo com Docker Compose
+
+### Pré-requisitos
+- Docker e Docker Compose instalados
+- Arquivo `backend/.env` configurado (ver seção abaixo)
+
+### Subir tudo
+```bash
+cd ~/Colaboradores_LDAP
+docker compose up -d --build
+```
+
+### Verificar status
+```bash
+docker compose ps
+```
+
+### Acompanhar logs
+```bash
+# Todos os serviços
+docker compose logs -f
+
+# Só o backend
+docker logs sis-colaborador-backend --tail 50
+
+# Só o frontend
+docker logs sis-colaborador-frontend --tail 50
+```
+
+### Reiniciar um serviço
+```bash
+docker compose restart backend
+docker compose restart frontend
+```
+
+### Parar tudo
+```bash
+docker compose down
+```
+
+### Rebuild sem cache (após alterações)
+```bash
+docker compose build --no-cache && docker compose up -d
+```
+
+### Rebuild só do frontend
+```bash
+docker compose up -d --build frontend
+```
+
+### Rebuild só do backend
+```bash
+docker compose build --no-cache backend && docker compose up -d
+```
+
+---
+
+## ⚙ Variáveis de Ambiente — `backend/.env`
+
+```env
+# Configurações LDAP
+LDAP_HOST=ldap.aeb.gov.br
+LDAP_PORT=389
+LDAP_BIND_DN=CN=Eventos Dev,OU=SERVICO,OU=USUARIOS,OU=AEB,DC=aeb,DC=gov,DC=br
+LDAP_BASE_DN=OU=USUARIOS,OU=AEB,DC=aeb,DC=gov,DC=br
+LDAP_BIND_PASSWORD='sua_senha_aqui'   # Use aspas simples se houver $ na senha
+
+# Banco de Dados PostgreSQL
+DB_HOST=192.168.12.68
+DB_PORT=5432
+DB_NAME=siscolaboradores
+DB_USER=app_colaboradores
+DB_PASSWORD=sua_senha_banco
+
+# Autenticação
+SECRET_KEY=sua_chave_secreta
+ADMIN_USER=admin.aeb
+ADMIN_PASS=sua_senha_admin
+
+# CORS
+ALLOWED_ORIGINS=https://colaboradores.aeb.gov.br,http://localhost:5173
+```
+
+> ⚠️ **Atenção:** Se a senha LDAP contiver `$`, escape com `$$` no `.env`.
+> Exemplo: `senha$123` → `senha$$123`
+
+---
+
+## 🔌 Testando a Conexão LDAP
+
+### Testar DNS e conectividade
+```bash
+docker exec sis-colaborador-backend python -c "
+import socket
+print('IP LDAP:', socket.gethostbyname('ldap.aeb.gov.br'))
+"
+```
+
+### Testar credenciais LDAP
+```bash
+docker exec sis-colaborador-backend python -c "
+from ldap_service import LDAPService
+s = LDAPService()
+conn = s._get_service_connection()
+print('Conexão OK:', conn)
+"
+```
+
+### Testar busca de usuário
+```bash
+docker exec sis-colaborador-backend python -c "
+from ldap_service import LDAPService
+s = LDAPService()
+user = s.search_user('nome.sobrenome')
+print(user)
+"
+```
+
+### Testar API de colaboradores
+```bash
+curl -s http://localhost:3000/api/colaboradores | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print(f'Status: {d[\"status\"]} | Total: {d[\"total\"]} colaboradores')
+"
+```
+
+### Testar health do backend
+```bash
+curl -s http://localhost:3000/health
+# Esperado: {"status": "ok"}
+```
+
+---
+
+## 🖥 Páginas e Funcionalidades
+
+### 🏠 Página Inicial
+Catálogo dinâmico de colaboradores com busca por nome, cargo ou área. Dados puxados do LDAP com overrides administrativos aplicados.
+
+### 🔐 Login
+Autenticação corporativa via LDAP (`nome.sobrenome` + senha de rede). Redireciona usuários comuns para o gerador de assinaturas e admins para o painel administrativo.
+
+### ✍ Gerador de Assinaturas
+1. Dados do LDAP preenchidos automaticamente
+2. Edite o ramal e escolha o fundo da assinatura
+3. Clique em **Gerar Preview** (renderização via Canvas HTML5)
+4. Clique em **Baixar PNG** para usar no cliente de e-mail
+
+### ⚙ Painel Administrativo
+- **Overrides:** Substitui visualmente dados desatualizados do LDAP
+- **Ocultar/Exibir:** Remove contas de serviço ou ex-colaboradores da listagem
+- **Assinatura Modo Livre:** Gera assinatura para qualquer pessoa sem login
+- **Gerenciar Capas:** Upload e remoção dos templates de assinatura
+
+---
+
+## 🌐 URLs
+
+| Ambiente | URL |
+|---|---|
+| Produção | https://colaboradores.aeb.gov.br |
+| Acesso direto (rede interna) | http://192.168.12.68:3000 |
+| API Docs (Swagger) | http://192.168.12.68:3000/docs |
+| Health Check | http://192.168.12.68:3000/health |
+
+---
+
+## 🖥 Desenvolvimento Local
+
+### Backend
+```bash
 cd backend
-
-# Crie e ative o ambiente virtual
 python -m venv venv
-.\venv\Scripts\Activate.ps1  # (ou source venv/bin/activate no Linux/Mac)
+source venv/bin/activate        # Linux/Mac
+# ou .\venv\Scripts\Activate.ps1  # Windows
 
-# Instale as dependências
 pip install -r requirements.txt
-
-# Inicie o servidor FastAPI (rodará na porta 8000)
 python app/main.py
+# API disponível em http://localhost:8000
+# Swagger em http://localhost:8000/docs
 ```
-> *Dica: A documentação automática da API (Swagger UI) pode ser acessada em `http://localhost:8000/docs` enquanto o servidor estiver rodando.*
 
-**2. Iniciando o Frontend:**
-Abra um **novo terminal**, navegue até a pasta do frontend e inicie a interface:
+### Frontend
 ```bash
 cd frontend
-
-# Instale os pacotes e dependências (apenas na primeira execução)
 npm install
-
-# Inicie o servidor local de desenvolvimento
 npm run dev
+# Interface disponível em http://localhost:5173
 ```
-> *O console informará um link local (geralmente `http://localhost:5173/`). Acesse pelo navegador.*
 
 ---
 
-## 🖥 Páginas e Navegação
-
-O sistema foi arquitetado para ser intuitivo e conta com as seguintes telas principais:
-
-### 🏠 Página Main (Página Inicial / Lista de Colaboradores)
-- **O que acontece:** É a tela de acesso rápido, atuando como um catálogo dinâmico de todos os funcionários e colaboradores da Agência.
-- **O que pode ser feito:** Você pode pesquisar pessoas por nome, cargo ou área na barra de busca inteligente. A tabela filtra dados ativos puxados do LDAP e mescla instantaneamente com configurações aplicadas pelos administradores (dados atualizados, visibilidade).
-
-### 🔐 Página de Login
-- **Autenticação Corporativa (LDAP):** A plataforma não utiliza registro por e-mail/senha soltos. A autenticação exige o login com o seu usuário de rede (`nome.sobrenome`) e senha de rede padrão da instituição.
-- **Para que serve:** O login impede acessos externos aos recursos do LDAP e direciona usuários normais para suas assinaturas, e usuários com privilégios para o painel de administração.
-
-### ✍ Página de Assinatura (Gerador)
-- **O que acontece:** Ao fazer o login com sucesso, o sistema pega os dados oficias atrelados ao LDAP da pessoa e auto-preenche a tela de criação. O nome, e-mail e outras informações da rede ficam "congelados" (não editáveis para preservar padronização).
-- **Como utilizar:**
-  1. Visualize seus dados já preenchidos.
-  2. Adicione ou edite o campo de **Ramal** (telefone).
-  3. No menu suspenso (dropdown), escolha o Fundo da Assinatura (Capa). Esse menu lê os nomes reais dos arquivos existentes na pasta `public/assinatura` automaticamente.
-  4. Clique em **"Gerar Preview"**. O sistema irá alinhar tipografias, fontes e aplicar as margens dinamicamente na imagem escolhida utilizando Canvas.
-  5. Se o resultado visual agradar, clique em **Baixar PNG** para fazer o download da assinatura pronta e importá-la em seu cliente de e-mail.
-
-### ⚙ Página ADMIN (Painel de Controle Administrativo)
-- **Como chegar:** Essa página requer uma conta com direitos de administrador (ex: login com credenciais de administração). Colaboradores comuns são bloqueados.
-- **O que pode ser feito:**
-  - **Gerenciamento de Overrides:** Caso o Active Directory / LDAP demore para atualizar o cargo de um funcionário promovido, o Administrador pode procurar este funcionário e aplicar uma "edição". Os dados digitados substituem visualmente o banco de dados oficial dentro do sistema (apenas na aplicação).
-  - **Ocultar/Exibir:** É possível esconder contas de serviço, salas de reunião genéricas ou ex-colaboradores que poluem a tela inicial "Main".
-  - **Assinatura Modo Livre:** Um módulo onde os campos não são bloqueados, permitindo que o administrador digite ou preencha rapidamente os dados para gerar a assinatura de e-mail por outra pessoa, sem a necessidade que ela mesmo faça o login.
-  - **Gerenciar Capas e Logs:** Monitoramento das assinaturas geradas e habilitação/desabilitação do catálogo das artes (capas) de fundo.
-
----
-
-> _**Atenção aos Detalhes:** A aplicação completa adota o estilo tipográfico "Inter" garantindo consistência visual em todos os elementos, e suporta interações e animações de mudança suave entre os modos (Dark Theme e Light Theme)._
-
-### Rodando na vm de produção
-- **vm de produção ** ip 192.168.12.68
+> 💡 **Dicas:**
+> - A aplicação usa a fonte **Inter** para consistência visual
+> - Suporte a **Dark Theme** e **Light Theme**
+> - O sync LDAP → banco ocorre automaticamente a cada **6 horas**
