@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
     try {
       const res = await loginLDAP(username, password);
       if (res.status === "ok") {
-        const userData = { ...res.user };
+        const userData = { ...res.user, token: res.token };
         setUser(userData);
         localStorage.setItem("aeb_user", JSON.stringify(userData));
         if (res.token) localStorage.setItem("access_token", res.token);

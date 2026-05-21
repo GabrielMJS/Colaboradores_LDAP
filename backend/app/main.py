@@ -38,6 +38,7 @@ limiter = Limiter(key_func=get_remote_address)
 # Configurações de diretório e sincronização
 BASE_DIR = Path(__file__).resolve().parent.parent
 CAPAS_DIR = BASE_DIR.parent / "frontend" / "public" / "assinatura"
+FOTOS_DIR = BASE_DIR.parent / "frontend" / "public" / "fotos"
 SYNC_INTERVAL_HOURS = 6
 
 def create_access_token(data: dict):
@@ -247,8 +248,43 @@ def remove_override(username: str, _user = Depends(require_admin)):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@app.post("/api/admin/colaboradores/{username}/foto")
+def upload_user_photo(username: str, file: UploadFile = File(...), _user = Depends(require_admin)):
+    try:
+        if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            return {"status": "error", "message": "Apenas arquivos .png, .jpg e .jpeg são permitidos."}
+        
+        FOTOS_DIR.mkdir(parents=True, exist_ok=True)
+        ext = file.filename.lower().split('.')[-1]
+        
+        # Apaga qualquer foto anterior do usuário (qualquer extensão)
+        for existing in FOTOS_DIR.glob(f"{username}.*"):
+            existing.unlink()
+            
+        file_name = f"{username}.{ext}"
+        file_path = FOTOS_DIR / file_name
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        foto_url = f"/fotos/{file_name}"
+        upsert_colaborador(username, {"foto_url": foto_url})
+            
+        return {"status": "ok", "message": "Foto enviada com sucesso.", "foto_url": foto_url}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
-
+@app.delete("/api/admin/colaboradores/{username}/foto")
+def delete_user_photo(username: str, _user = Depends(require_admin)):
+    try:
+        for existing in FOTOS_DIR.glob(f"{username}.*"):
+            existing.unlink()
+            
+        # Limpa no banco
+        upsert_colaborador(username, {"foto_url": None})
+        return {"status": "ok", "message": "Foto removida com sucesso."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 @app.post("/api/admin/sync")

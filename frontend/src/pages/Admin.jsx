@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import Avatar from "../components/Avatar";
-import { fetchColaboradoresAdmin, saveOverride, deleteOverride, fetchCapas, uploadCapa, deleteCapa } from "../services/api";
+import { fetchColaboradoresAdmin, saveOverride, deleteOverride, fetchCapas, uploadCapa, deleteCapa, uploadUserPhoto, deleteUserPhoto } from "../services/api";
 
 // -------------------------------------------------------------------
 // Helpers
@@ -64,6 +64,7 @@ function AbaUsuarios() {
   const [form, setForm] = useState({});
   const [salvando, setSalvando] = useState(false);
   const [feedback, setFeedback] = useState({ id: null, msg: "" });
+  const [uploadingFoto, setUploadingFoto] = useState(false);
 
   useEffect(() => {
     fetchColaboradoresAdmin()
@@ -140,6 +141,39 @@ function AbaUsuarios() {
     setColaboradores(prev => prev.map(u =>
       u.sAMAccountName === c.sAMAccountName ? { ...u, visivel: novoValor } : u
     ));
+  }
+
+  async function handleFotoUpload(e, username) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingFoto(true);
+    try {
+      const res = await uploadUserPhoto(username, file);
+      setColaboradores(prev => prev.map(c => 
+        c.sAMAccountName === username ? { ...c, foto: res.foto_url } : c
+      ));
+      setFeedback({ id: username, msg: "✓ Foto atualizada!" });
+      setTimeout(() => setFeedback({ id: null, msg: "" }), 2500);
+    } catch (err) {
+      setFeedback({ id: username, msg: `⚠ Erro: ${err.message}` });
+    } finally {
+      setUploadingFoto(false);
+      e.target.value = null;
+    }
+  }
+
+  async function handleFotoDelete(username) {
+    if (!window.confirm("Deseja remover a foto deste usuário?")) return;
+    try {
+      await deleteUserPhoto(username);
+      setColaboradores(prev => prev.map(c => 
+        c.sAMAccountName === username ? { ...c, foto: null } : c
+      ));
+      setFeedback({ id: username, msg: "✓ Foto removida!" });
+      setTimeout(() => setFeedback({ id: null, msg: "" }), 2500);
+    } catch (err) {
+      setFeedback({ id: username, msg: `⚠ Erro ao remover foto` });
+    }
   }
 
   if (carregando) return (
@@ -314,6 +348,34 @@ function AbaUsuarios() {
                         placeholder="Ex: 15/04/2026"
                         style={inputStyle(theme)}
                       />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 24, marginBottom: 20, alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <label style={labelStyle(theme)}>Foto de Perfil</label>
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <input type="file" accept=".jpg,.jpeg,.png" id={`upload-foto-${username}`} style={{ display: "none" }} onChange={(e) => handleFotoUpload(e, username)} disabled={uploadingFoto} />
+                          <label htmlFor={`upload-foto-${username}`} style={{
+                            background: "transparent", border: `1px solid ${theme.inputBorder}`,
+                            borderRadius: 6, color: theme.textSecondary,
+                            padding: "6px 12px", fontSize: 12, fontFamily: "'Inter', sans-serif",
+                            cursor: uploadingFoto ? "not-allowed" : "pointer", opacity: uploadingFoto ? 0.6 : 1
+                          }}>
+                            {uploadingFoto ? "Enviando..." : "⬆ Alterar Foto"}
+                          </label>
+                          {c.foto && !c.foto.startsWith("data:") && (
+                            <button onClick={() => handleFotoDelete(username)} style={{
+                              background: "transparent", border: "1px solid rgba(198,40,40,0.3)",
+                              borderRadius: 6, color: "#ef9a9a", padding: "6px 12px", fontSize: 12,
+                              fontFamily: "'Inter', sans-serif", cursor: "pointer"
+                            }}>
+                              🗑 Remover Foto
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
