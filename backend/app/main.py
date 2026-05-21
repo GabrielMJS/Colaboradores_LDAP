@@ -277,13 +277,23 @@ def upload_user_photo(username: str, file: UploadFile = File(...), _user = Depen
 @app.delete("/api/admin/colaboradores/{username}/foto")
 def delete_user_photo(username: str, _user = Depends(require_admin)):
     try:
-        for existing in FOTOS_DIR.glob(f"{username}.*"):
-            existing.unlink()
+        print(f"[FOTO] Iniciando exclusão de foto para {username} no diretório {FOTOS_DIR}")
+        encontrados = list(FOTOS_DIR.glob(f"{username}.*"))
+        if not encontrados:
+            print(f"[FOTO] Nenhuma foto encontrada para apagar em {FOTOS_DIR}")
+            
+        for existing in encontrados:
+            try:
+                existing.unlink()
+                print(f"[FOTO] Apagado: {existing}")
+            except Exception as e_unlink:
+                print(f"[FOTO] Erro ao tentar apagar {existing}: {e_unlink}")
             
         # Limpa no banco
         upsert_colaborador(username, {"foto_url": None})
         return {"status": "ok", "message": "Foto removida com sucesso."}
     except Exception as e:
+        print(f"[FOTO] Erro geral ao remover foto: {e}")
         return {"status": "error", "message": str(e)}
 
 

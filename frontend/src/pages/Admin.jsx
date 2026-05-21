@@ -149,8 +149,9 @@ function AbaUsuarios() {
     setUploadingFoto(true);
     try {
       const res = await uploadUserPhoto(username, file);
+      const timestamp = new Date().getTime();
       setColaboradores(prev => prev.map(c => 
-        c.sAMAccountName === username ? { ...c, foto: res.foto_url } : c
+        c.sAMAccountName === username ? { ...c, foto: `${res.foto_url}?t=${timestamp}` } : c
       ));
       setFeedback({ id: username, msg: "✓ Foto atualizada!" });
       setTimeout(() => setFeedback({ id: null, msg: "" }), 2500);
