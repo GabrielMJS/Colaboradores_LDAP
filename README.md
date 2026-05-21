@@ -99,3 +99,6 @@ O sistema foi arquitetado para ser intuitivo e conta com as seguintes telas prin
 ---
 
 > _**Atenção aos Detalhes:** A aplicação completa adota o estilo tipográfico "Inter" garantindo consistência visual em todos os elementos, e suporta interações e animações de mudança suave entre os modos (Dark Theme e Light Theme)._
+
+### Rodando na vm de produção
+- **vm de produção ** ip 192.168.12.68
