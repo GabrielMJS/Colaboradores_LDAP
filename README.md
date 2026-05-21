@@ -134,20 +134,20 @@ docker compose build --no-cache backend && docker compose up -d
 # Configurações LDAP
 LDAP_HOST=ldap.aeb.gov.br
 LDAP_PORT=389
-LDAP_BIND_DN=CN=Eventos Dev,OU=SERVICO,OU=USUARIOS,OU=AEB,DC=aeb,DC=gov,DC=br
+LDAP_BIND_DN=CN=xxxxxx,OU=SERVICO,OU=USUARIOS,OU=AEB,DC=aeb,DC=gov,DC=br
 LDAP_BASE_DN=OU=USUARIOS,OU=AEB,DC=aeb,DC=gov,DC=br
 LDAP_BIND_PASSWORD='sua_senha_aqui'   # Use aspas simples se houver $ na senha
 
 # Banco de Dados PostgreSQL
-DB_HOST=192.168.12.68
-DB_PORT=5432
-DB_NAME=siscolaboradores
-DB_USER=app_colaboradores
+DB_HOST=xxxxxxxxxxx
+DB_PORT=xxx
+DB_NAME=xxxxxxxxxxxxxx
+DB_USER=xxxxxxxxxxxxxxxxxxxxxx
 DB_PASSWORD=sua_senha_banco
 
 # Autenticação
 SECRET_KEY=sua_chave_secreta
-ADMIN_USER=admin.aeb
+ADMIN_USER=xxxxxxxxxxx
 ADMIN_PASS=sua_senha_admin
 
 # CORS
