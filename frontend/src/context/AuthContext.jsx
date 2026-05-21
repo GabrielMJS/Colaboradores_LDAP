@@ -17,6 +17,7 @@ export function AuthProvider({ children }) {
         const userData = { ...res.user };
         setUser(userData);
         localStorage.setItem("aeb_user", JSON.stringify(userData));
+        if (res.token) localStorage.setItem("access_token", res.token);
         setError("");
         return { ok: true, isAdmin: userData.isAdmin, isAniversariantes: userData.isAniversariantes };
       } else {
@@ -37,6 +38,7 @@ export function AuthProvider({ children }) {
     }
     setUser(null);
     localStorage.removeItem("aeb_user");
+    localStorage.removeItem("access_token");
   }
 
   return (

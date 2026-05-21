@@ -214,7 +214,7 @@ def get_colaboradores_admin(
     except Exception as e:
         return {"status": "error", "message": str(e), "data": [], "total": 0}
 
-@app.put("/api/admin/colaboradores/{username}/override")
+@app.api_route("/api/admin/colaboradores/{username}/override", methods=["PUT", "POST"])
 def set_override(username: str, body: OverrideRequest, _user = Depends(require_admin)):
     try:
         fields = {k: v for k, v in body.dict().items() if v is not None}

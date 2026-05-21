@@ -2,9 +2,16 @@ const BASE_URL = "";
 
 const IS_PRODUCTION = false; // Ajustar se necessário
 
+
 function getHeaders() {
-  return { "Content-Type": "application/json" };
+  const token = localStorage.getItem("access_token");
+  return {
+    "Content-Type": "application/json",
+    ...(token && { "Authorization": `Bearer ${token}` })
+  };
 }
+
+
 
 // ------------------------------------------------------------------
 // Colaboradores — página inicial (ocultos filtrados)
@@ -41,16 +48,21 @@ export async function fetchColaboradoresAdmin(unidade = null) {
 // ------------------------------------------------------------------
 // Override — salvar customizações
 // ------------------------------------------------------------------
+
 export async function saveOverride(username, fields) {
   const res = await fetch(`${BASE_URL}/api/admin/colaboradores/${username}/override`, {
-    method: "PUT",
-    headers: getHeaders(),
+    method: "POST",
+    headers: {
+      ...getHeaders(),
+      "X-HTTP-Method-Override": "PUT"
+    },
     body: JSON.stringify(fields),
     credentials: "include"
   });
   if (!res.ok) throw new Error("Erro ao salvar customizações");
   return res.json();
 }
+
 
 // ------------------------------------------------------------------
 // Override — remover customizações
@@ -68,6 +80,7 @@ export async function deleteOverride(username) {
 // ------------------------------------------------------------------
 // Autenticação
 // ------------------------------------------------------------------
+
 export async function loginLDAP(username, password) {
   const res = await fetch(`${BASE_URL}/auth/login`, {
     method: "POST",
@@ -76,7 +89,9 @@ export async function loginLDAP(username, password) {
     credentials: "include"
   });
   if (!res.ok) throw new Error("Erro de comunicação com o servidor");
-  return res.json();
+  const data = await res.json();
+  if (data.token) localStorage.setItem("access_token", data.token);
+  return data;
 }
 
 export async function logoutLDAP() {
@@ -84,9 +99,12 @@ export async function logoutLDAP() {
     method: "POST",
     credentials: "include"
   });
+  localStorage.removeItem("access_token");
   if (!res.ok) throw new Error("Erro ao realizar logout");
   return res.json();
 }
+
+
 
 // ------------------------------------------------------------------
 // Aniversariantes
