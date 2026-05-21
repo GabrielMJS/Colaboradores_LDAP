@@ -20,6 +20,9 @@ services:
       timeout: 10s
       retries: 5
       start_period: 120s
+    volumes:
+      - fotos_volume:/frontend/public/fotos
+      - assinatura_volume:/frontend/public/assinatura
     networks:
       - app_network
  
@@ -36,9 +39,17 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    volumes:
+      - fotos_volume:/usr/share/nginx/html/fotos
+      - assinatura_volume:/usr/share/nginx/html/assinatura
     networks:
       - app_network
  
 networks:
   app_network:
     driver: bridge
+
+volumes:
+  fotos_volume:
+  assinatura_volume:
+
