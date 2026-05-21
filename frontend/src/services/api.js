@@ -184,11 +184,11 @@ export async function uploadUserPhoto(username, file) {
     credentials: "include"
   });
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.status === "error") {
     throw new Error(data.message || "Erro ao fazer upload da foto");
   }
-  return res.json();
+  return data;
 }
 
 export async function deleteUserPhoto(username) {
@@ -197,9 +197,10 @@ export async function deleteUserPhoto(username) {
     headers: getHeaders(),
     credentials: "include"
   });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
+  
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.status === "error") {
     throw new Error(data.message || "Erro ao excluir a foto");
   }
-  return res.json();
+  return data;
 }
