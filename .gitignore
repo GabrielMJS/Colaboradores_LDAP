@@ -9,6 +9,7 @@ backend/*.egg-info/
 frontend/node_modules/
 frontend/dist/
 frontend/.env.local
+frontend/public/fotos/
 
 # IDE
 .vscode/
