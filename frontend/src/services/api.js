@@ -204,3 +204,57 @@ export async function deleteUserPhoto(username) {
   }
   return data;
 }
+
+// ------------------------------------------------------------------
+// Departamentos / Siglas
+// ------------------------------------------------------------------
+export async function fetchDepartamentosAdmin() {
+  const res = await fetch(`${BASE_URL}/api/admin/departamentos`, {
+    headers: getHeaders(),
+    credentials: "include"
+  });
+  if (!res.ok) throw new Error("Erro ao buscar siglas");
+  const json = await res.json();
+  return json.data || [];
+}
+
+export async function createDepartamento(fields) {
+  const res = await fetch(`${BASE_URL}/api/admin/departamentos`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(fields),
+    credentials: "include"
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.status === "error") {
+    throw new Error(data.message || "Erro ao criar nova sigla");
+  }
+  return data;
+}
+
+export async function updateDepartamento(id, fields) {
+  const res = await fetch(`${BASE_URL}/api/admin/departamentos/${id}`, {
+    method: "PUT",
+    headers: getHeaders(),
+    body: JSON.stringify(fields),
+    credentials: "include"
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.status === "error") {
+    throw new Error(data.message || "Erro ao atualizar sigla");
+  }
+  return data;
+}
+
+export async function deleteDepartamento(id) {
+  const res = await fetch(`${BASE_URL}/api/admin/departamentos/${id}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+    credentials: "include"
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.status === "error") {
+    throw new Error(data.message || "Erro ao excluir sigla");
+  }
+  return data;
+}

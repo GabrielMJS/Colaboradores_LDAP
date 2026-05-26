@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import Avatar from "../components/Avatar";
-import { fetchColaboradoresAdmin, saveOverride, deleteOverride, fetchCapas, uploadCapa, deleteCapa, uploadUserPhoto, deleteUserPhoto } from "../services/api";
+import { fetchColaboradoresAdmin, saveOverride, deleteOverride, fetchCapas, uploadCapa, deleteCapa, uploadUserPhoto, deleteUserPhoto, fetchDepartamentosAdmin, createDepartamento, updateDepartamento, deleteDepartamento } from "../services/api";
 
 // -------------------------------------------------------------------
 // Helpers
@@ -60,6 +60,7 @@ function AbaUsuarios() {
   const [colaboradores, setColaboradores] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
+  const [unidadeFiltro, setUnidadeFiltro] = useState("");
   const [editando, setEditando] = useState(null); // username em edição
   const [form, setForm] = useState({});
   const [salvando, setSalvando] = useState(false);
@@ -73,14 +74,28 @@ function AbaUsuarios() {
       .finally(() => setCarregando(false));
   }, []);
 
+  const unidadesDisponiveis = useMemo(() => {
+    const unis = new Set();
+    colaboradores.forEach(c => {
+      const u = (c.ou || c.unidade || "").trim();
+      if (u) unis.add(u);
+    });
+    return Array.from(unis).sort();
+  }, [colaboradores]);
+
   const filtrados = useMemo(() => {
     const q = busca.toLowerCase();
-    return colaboradores.filter(c =>
-      (c.displayName || "").toLowerCase().includes(q) ||
-      (c.sAMAccountName || "").toLowerCase().includes(q) ||
-      (c.department || "").toLowerCase().includes(q)
-    );
-  }, [colaboradores, busca]);
+    return colaboradores.filter(c => {
+      const matchesSearch = (c.displayName || "").toLowerCase().includes(q) ||
+        (c.sAMAccountName || "").toLowerCase().includes(q) ||
+        (c.department || "").toLowerCase().includes(q);
+      
+      const cUnit = (c.ou || c.unidade || "").trim();
+      const matchesUnit = !unidadeFiltro || cUnit === unidadeFiltro;
+      
+      return matchesSearch && matchesUnit;
+    });
+  }, [colaboradores, busca, unidadeFiltro]);
 
   function abrirEdicao(c) {
     setEditando(c.sAMAccountName);
@@ -187,14 +202,32 @@ function AbaUsuarios() {
     <div>
       <SectionTitle>👥 Gerenciar Colaboradores</SectionTitle>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ position: "relative" }}>
-          <input
-            type="text" placeholder="Buscar por nome, login ou lotação..."
-            value={busca} onChange={e => setBusca(e.target.value)}
-            style={{ ...inputStyle(theme), width: 320, paddingRight: 36 }}
-          />
-          <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted }}>🔍</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ position: "relative" }}>
+            <input
+              type="text" placeholder="Buscar por nome, login ou lotação..."
+              value={busca} onChange={e => setBusca(e.target.value)}
+              style={{ ...inputStyle(theme), width: 320, paddingRight: 36 }}
+            />
+            <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted }}>🔍</span>
+          </div>
+
+          <select
+            value={unidadeFiltro}
+            onChange={e => setUnidadeFiltro(e.target.value)}
+            style={{
+              ...inputStyle(theme),
+              width: 200,
+              cursor: "pointer",
+              height: 38,
+            }}
+          >
+            <option value="">Todas as unidades</option>
+            {unidadesDisponiveis.map(u => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
         </div>
         <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'Inter', sans-serif" }}>
           {filtrados.length} de {colaboradores.length} colaboradores
@@ -561,6 +594,472 @@ function AbaCapas() {
         ))}
         {capas.length === 0 && (
           <p style={{ color: theme.textMuted, fontSize: 13, fontFamily: "'Inter', sans-serif", textAlign: "center", padding: "20px" }}>Nenhuma capa encontrada na pasta public/assinatura/.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------------
+// Aba: Siglas
+// -------------------------------------------------------------------
+function AbaSiglas() {
+  const theme = useTheme();
+  const [siglas, setSiglas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [busca, setBusca] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [editando, setEditando] = useState(null); // ID da sigla em edição
+  const [form, setForm] = useState({ sigla: "", nome_oficial: "", diretoria_pai: "", ativo: true });
+  const [adicionando, setAdicionando] = useState(false);
+  const [feedback, setFeedback] = useState({ id: null, msg: "" });
+
+  useEffect(() => {
+    carregarSiglas();
+  }, []);
+
+  async function carregarSiglas() {
+    setCarregando(true);
+    try {
+      const data = await fetchDepartamentosAdmin();
+      setSiglas(data);
+    } catch (e) {
+      console.error(e);
+      setSiglas([]);
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  const filtradas = useMemo(() => {
+    const q = busca.toLowerCase().trim();
+    return siglas.filter(s => 
+      (s.sigla || "").toLowerCase().includes(q) ||
+      (s.nome_oficial || "").toLowerCase().includes(q) ||
+      (s.diretoria_pai || "").toLowerCase().includes(q)
+    );
+  }, [siglas, busca]);
+
+  function abrirEdicao(s) {
+    setEditando(s.id);
+    setForm({
+      sigla: s.sigla || "",
+      nome_oficial: s.nome_oficial || "",
+      diretoria_pai: s.diretoria_pai || "",
+      ativo: s.ativo !== false,
+    });
+  }
+
+  function fecharEdicao() {
+    setEditando(null);
+    setForm({ sigla: "", nome_oficial: "", diretoria_pai: "", ativo: true });
+  }
+
+  async function salvarEdicao(id) {
+    if (!form.sigla.trim() || !form.nome_oficial.trim()) {
+      alert("Por favor, preencha a sigla e o nome por extenso.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      await updateDepartamento(id, form);
+      setSiglas(prev => prev.map(s => {
+        if (s.id !== id) return s;
+        return {
+          ...s,
+          sigla: form.sigla.trim().toUpperCase(),
+          nome_oficial: form.nome_oficial.trim(),
+          diretoria_pai: form.diretoria_pai.trim().toUpperCase(),
+          ativo: form.ativo,
+        };
+      }));
+      setFeedback({ id, msg: "✓ Atualizado!" });
+      setTimeout(() => setFeedback({ id: null, msg: "" }), 2500);
+      fecharEdicao();
+    } catch (err) {
+      setFeedback({ id, msg: `⚠ Erro: ${err.message}` });
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function salvarNova() {
+    if (!form.sigla.trim() || !form.nome_oficial.trim()) {
+      alert("Por favor, preencha a sigla e o nome por extenso.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      const res = await createDepartamento(form);
+      const novaSiglaObj = {
+        id: res.id,
+        sigla: form.sigla.trim().toUpperCase(),
+        nome_oficial: form.nome_oficial.trim(),
+        diretoria_pai: form.diretoria_pai.trim().toUpperCase(),
+        ativo: form.ativo,
+      };
+      setSiglas(prev => [novaSiglaObj, ...prev]);
+      setFeedback({ id: "nova", msg: "✓ Criado com sucesso!" });
+      setTimeout(() => setFeedback({ id: null, msg: "" }), 2500);
+      setAdicionando(false);
+      setForm({ sigla: "", nome_oficial: "", diretoria_pai: "", ativo: true });
+    } catch (err) {
+      alert(`Erro ao criar sigla: ${err.message}`);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function excluirSigla(id, siglaNome) {
+    if (!window.confirm(`Deseja realmente excluir permanentemente a sigla "${siglaNome}"?`)) return;
+    try {
+      await deleteDepartamento(id);
+      setSiglas(prev => prev.filter(s => s.id !== id));
+      fecharEdicao();
+    } catch (err) {
+      alert(`Erro ao excluir: ${err.message}`);
+    }
+  }
+
+  async function toggleAtivo(s) {
+    const novoValor = s.ativo === false ? true : false;
+    try {
+      await updateDepartamento(s.id, {
+        sigla: s.sigla,
+        nome_oficial: s.nome_oficial,
+        diretoria_pai: s.diretoria_pai,
+        ativo: novoValor
+      });
+      setSiglas(prev => prev.map(item => 
+        item.id === s.id ? { ...item, ativo: novoValor } : item
+      ));
+    } catch (err) {
+      alert(`Erro ao alterar status: ${err.message}`);
+    }
+  }
+
+  if (carregando) return (
+    <div style={{ padding: 48, textAlign: "center", color: theme.textMuted, fontFamily: "'Inter', sans-serif" }}>
+      Carregando siglas...
+    </div>
+  );
+
+  return (
+    <div>
+      <SectionTitle>🏷 Gerenciar Siglas de Coordenações</SectionTitle>
+
+      {/* Painel do Topo: Adicionar Nova e Busca */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          
+          <div style={{ position: "relative", flex: 1, minWidth: 280, maxWidth: 400 }}>
+            <input
+              type="text" placeholder="Buscar por coordenação, diretoria ou nome por extenso..."
+              value={busca} onChange={e => setBusca(e.target.value)}
+              style={{ ...inputStyle(theme), paddingRight: 36 }}
+            />
+            <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted }}>🔍</span>
+          </div>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={() => {
+                setAdicionando(!adicionando);
+                fecharEdicao();
+                setForm({ sigla: "", nome_oficial: "", diretoria_pai: "", ativo: true });
+              }}
+              style={{
+                background: adicionando ? "transparent" : "linear-gradient(135deg,#1565c0,#0d47a1)",
+                border: adicionando ? `1px solid ${theme.inputBorder}` : "none",
+                borderRadius: 8, color: adicionando ? theme.textSecondary : "#fff",
+                padding: "10px 20px", fontSize: 13, fontFamily: "'Inter', sans-serif",
+                fontWeight: 600, cursor: "pointer", transition: "all 0.2s"
+              }}
+            >
+              {adicionando ? "Cancelar" : "+ Adicionar Nova"}
+            </button>
+            <span style={{ fontSize: 12, color: theme.textMuted, alignSelf: "center", fontFamily: "'Inter', sans-serif" }}>
+              {filtradas.length} de {siglas.length} siglas
+            </span>
+          </div>
+        </div>
+
+        {/* Formulário de Adicionar Nova Sigla */}
+        {adicionando && (
+          <div style={{
+            background: theme.tableBg, border: theme.tableBorder, borderRadius: 10,
+            padding: 20, animation: "fadeIn 0.2s ease",
+            boxShadow: theme.isDark ? "0 4px 20px rgba(0,0,0,0.2)" : "0 4px 20px rgba(0,0,0,0.05)"
+          }}>
+            <h3 style={{ margin: "0 0 16px 0", fontSize: 14, fontWeight: 700, color: theme.textPrimary, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              ✨ Adicionar Nova Sigla / Coordenação
+            </h3>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
+              <div>
+                <label style={labelStyle(theme)}>Sigla da Coordenação *</label>
+                <input
+                  type="text" value={form.sigla}
+                  onChange={e => setForm(f => ({ ...f, sigla: e.target.value }))}
+                  placeholder="Ex: CTI"
+                  style={inputStyle(theme)}
+                />
+              </div>
+              <div>
+                <label style={labelStyle(theme)}>Sigla da Diretoria</label>
+                <input
+                  type="text" value={form.diretoria_pai}
+                  onChange={e => setForm(f => ({ ...f, diretoria_pai: e.target.value }))}
+                  placeholder="Ex: DPOA"
+                  style={inputStyle(theme)}
+                />
+              </div>
+              <div>
+                <label style={labelStyle(theme)}>Nome por Extenso / Lotação *</label>
+                <input
+                  type="text" value={form.nome_oficial}
+                  onChange={e => setForm(f => ({ ...f, nome_oficial: e.target.value }))}
+                  placeholder="Ex: Coordenação de Tecnologia da Informação"
+                  style={inputStyle(theme)}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={salvarNova}
+                disabled={salvando}
+                style={{
+                  background: "linear-gradient(135deg,#2e7d32,#1b5e20)",
+                  border: "none", borderRadius: 8, color: "#fff",
+                  padding: "9px 24px", fontSize: 13, fontFamily: "'Inter', sans-serif",
+                  fontWeight: 600, cursor: salvando ? "not-allowed" : "pointer",
+                  opacity: salvando ? 0.7 : 1
+                }}
+              >
+                {salvando ? "Salvando..." : "💾 Salvar Nova Sigla"}
+              </button>
+              <button
+                onClick={() => setAdicionando(false)}
+                style={{
+                  background: "transparent", border: `1px solid ${theme.inputBorder}`,
+                  borderRadius: 8, color: theme.textSecondary,
+                  padding: "9px 18px", fontSize: 13, fontFamily: "'Inter', sans-serif",
+                  cursor: "pointer"
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Listagem em Tabela/Grid */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        
+        {/* Cabeçalho da Listagem */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "180px 180px 1fr 180px",
+          alignItems: "center", gap: 16, padding: "8px 18px",
+          borderBottom: theme.rowBorder,
+          fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 11,
+          letterSpacing: "0.1em", textTransform: "uppercase",
+          color: theme.tableHeaderColor || theme.textMuted
+        }}>
+          <div>Coordenação</div>
+          <div>Diretoria</div>
+          <div>Lotação (por extenso)</div>
+          <div style={{ textAlign: "right" }}>Ações</div>
+        </div>
+
+        {/* Linhas da Listagem */}
+        {filtradas.map(s => {
+          const isEditando = editando === s.id;
+          
+          return (
+            <div key={s.id} style={{
+              background: theme.tableBg, border: theme.tableBorder,
+              borderRadius: 10, overflow: "hidden",
+              transition: "all 0.2s ease",
+              borderColor: isEditando ? (theme.isDark ? "rgba(100,150,255,0.35)" : "rgba(0,80,200,0.35)") : undefined,
+              boxShadow: isEditando ? "0 4px 12px rgba(0,0,0,0.15)" : "none"
+            }}>
+              {/* Linha Principal */}
+              <div style={{
+                display: "grid", gridTemplateColumns: "180px 180px 1fr 180px",
+                alignItems: "center", gap: 16, padding: "14px 18px",
+                opacity: s.ativo !== false ? 1 : 0.6
+              }}>
+                {/* Coordenação Sigla */}
+                <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 14, color: theme.textAccent }}>
+                  {s.sigla}
+                  {s.ativo === false && (
+                    <span style={{ marginLeft: 8, fontSize: 9, padding: "1px 5px", borderRadius: 4, background: "rgba(198,40,40,0.2)", color: "#ef9a9a" }}>
+                      INATIVO
+                    </span>
+                  )}
+                </div>
+
+                {/* Diretoria Sigla */}
+                <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: 13, color: theme.textPrimary }}>
+                  {s.diretoria_pai || "—"}
+                </div>
+
+                {/* Nome Completo por Extenso */}
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textSecondary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={s.nome_oficial}>
+                  {s.nome_oficial}
+                </div>
+
+                {/* Ações */}
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                  {feedback.id === s.id && (
+                    <span style={{ fontSize: 12, color: "#81c784", fontFamily: "'Inter', sans-serif", alignSelf: "center", marginRight: 6 }}>
+                      {feedback.msg}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => toggleAtivo(s)}
+                    title={s.ativo !== false ? "Desativar sigla" : "Ativar sigla"}
+                    style={{
+                      background: "transparent", border: `1px solid ${theme.inputBorder}`,
+                      borderRadius: 6, color: theme.textSecondary,
+                      padding: "5px 10px", fontSize: 12,
+                      fontFamily: "'Inter', sans-serif", cursor: "pointer",
+                    }}
+                  >
+                    {s.ativo !== false ? "👁 Ocultar" : "👁 Mostrar"}
+                  </button>
+                  <button
+                    onClick={() => isEditando ? fecharEdicao() : abrirEdicao(s)}
+                    style={{
+                      background: isEditando ? "transparent" : (theme.isDark ? "rgba(21,101,192,0.2)" : "rgba(21,101,192,0.1)"),
+                      border: `1px solid ${theme.isDark ? "rgba(100,150,255,0.3)" : "rgba(21,101,192,0.25)"}`,
+                      borderRadius: 6, color: theme.textAccent,
+                      padding: "5px 12px", fontSize: 12,
+                      fontFamily: "'Inter', sans-serif", fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {isEditando ? "Cancelar" : "✎ Editar"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Formulário de Edição Inline Expansível */}
+              {isEditando && (
+                <div style={{
+                  borderTop: theme.rowBorder,
+                  padding: "20px 18px",
+                  background: theme.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,60,160,0.02)",
+                  animation: "fadeIn 0.2s ease",
+                }}>
+                  <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'Inter', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16 }}>
+                    Editando Sigla: {s.sigla} — alterações serão aplicadas globalmente
+                  </p>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
+                    <div>
+                      <label style={labelStyle(theme)}>Sigla da Coordenação</label>
+                      <input
+                        type="text" value={form.sigla}
+                        onChange={e => setForm(f => ({ ...f, sigla: e.target.value }))}
+                        style={inputStyle(theme)}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle(theme)}>Sigla da Diretoria</label>
+                      <input
+                        type="text" value={form.diretoria_pai}
+                        onChange={e => setForm(f => ({ ...f, diretoria_pai: e.target.value }))}
+                        style={inputStyle(theme)}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle(theme)}>Lotação / Nome por Extenso</label>
+                      <input
+                        type="text" value={form.nome_oficial}
+                        onChange={e => setForm(f => ({ ...f, nome_oficial: e.target.value }))}
+                        style={inputStyle(theme)}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 20 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                      <div
+                        onClick={() => setForm(f => ({ ...f, ativo: !f.ativo }))}
+                        style={{
+                          width: 44, height: 24, borderRadius: 12, position: "relative",
+                          background: form.ativo ? "#1565c0" : (theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)"),
+                          transition: "background 0.2s", cursor: "pointer", flexShrink: 0,
+                        }}
+                      >
+                        <div style={{
+                          position: "absolute", top: 3, left: form.ativo ? 23 : 3,
+                          width: 18, height: 18, borderRadius: "50%", background: "white",
+                          transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                        }} />
+                      </div>
+                      <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textPrimary }}>
+                        Ativa no sistema (utilizada para normalização e auto-complete)
+                      </span>
+                    </label>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        onClick={() => salvarEdicao(s.id)}
+                        disabled={salvando}
+                        style={{
+                          background: "linear-gradient(135deg,#1565c0,#0d47a1)",
+                          border: "none", borderRadius: 7, color: "#fff",
+                          padding: "9px 24px", fontSize: 13, fontFamily: "'Inter', sans-serif",
+                          fontWeight: 600, cursor: salvando ? "not-allowed" : "pointer",
+                          opacity: salvando ? 0.7 : 1,
+                        }}
+                      >
+                        {salvando ? "Salvando..." : "💾 Salvar alterações"}
+                      </button>
+                      <button
+                        onClick={fecharEdicao}
+                        style={{
+                          background: "transparent", border: `1px solid ${theme.inputBorder}`,
+                          borderRadius: 7, color: theme.textSecondary,
+                          padding: "9px 18px", fontSize: 13, fontFamily: "'Inter', sans-serif",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => excluirSigla(s.id, s.sigla)}
+                      style={{
+                        background: "transparent", border: "1px solid rgba(198,40,40,0.5)",
+                        borderRadius: 7, color: "#ef9a9a",
+                        padding: "9px 18px", fontSize: 13, fontFamily: "'Inter', sans-serif",
+                        fontWeight: 600, cursor: "pointer",
+                        transition: "all 0.2s"
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(198,40,40,0.15)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                    >
+                      🗑 Excluir Sigla
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {filtradas.length === 0 && (
+          <div style={{ padding: "40px", textAlign: "center", color: theme.textMuted, fontSize: 13, fontFamily: "'Inter', sans-serif" }}>
+            Nenhuma sigla correspondente encontrada.
+          </div>
         )}
       </div>
     </div>
@@ -964,6 +1463,7 @@ export default function Admin() {
 
   const abas = [
     { id: "usuarios",   label: "👥 Usuários"   },
+    { id: "siglas",     label: "🏷 Siglas"     },
     { id: "assinatura", label: "✍ Assinatura"  },
     { id: "capas",      label: "🖼 Capas"       },
   ];
@@ -1045,6 +1545,7 @@ export default function Admin() {
         {/* Conteúdo */}
         <div style={{ animation: "fadeIn 0.4s ease-out" }}>
           {abaAtiva === "usuarios"   && <AbaUsuarios />}
+          {abaAtiva === "siglas"     && <AbaSiglas />}
           {abaAtiva === "assinatura" && <AbaAssinatura />}
           {abaAtiva === "capas"      && <AbaCapas />}
         </div>

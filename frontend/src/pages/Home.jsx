@@ -46,13 +46,17 @@ export default function Home() {
     setCurrentPage(1);
   }, [search, unidade]);
 
-  useEffect(() => {
+  const carregarDados = () => {
     setCarregando(true);
     setErro("");
     fetchColaboradores()
       .then(dados => setColaboradores(dados))
       .catch(() => setErro("Não foi possível carregar os colaboradores."))
       .finally(() => setCarregando(false));
+  };
+
+  useEffect(() => {
+    carregarDados();
   }, []);
 
   const availableUnidades = useMemo(() => {
@@ -130,6 +134,11 @@ export default function Home() {
           unidade={unidade}
           onUnidade={setUnidade}
           availableUnidades={availableUnidades}
+          onLogoClick={() => {
+            setSearch("");
+            setUnidade("Selecionar Unidade");
+            carregarDados();
+          }}
         />
 
         <main style={{ padding: "24px" }}>

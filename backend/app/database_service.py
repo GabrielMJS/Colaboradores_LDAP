@@ -248,7 +248,12 @@ def apply_db_overrides(colaboradores: list, filter_hidden: bool = True) -> list:
                           if k not in ("id", "criado_em", "atualizado_em", "departamento_id")
                           and v is not None}
         c["_in_db"] = bool(db_data)
-        c["visivel"] = db_data.get("visivel", True) if db_data else True
+        
+        # Determine default visibility fallback (hidden if the unit is 'DESATIVADOS')
+        unidade_sigla = db_data.get("unidade_sigla") or c.get("ou") or ""
+        default_visivel = False if str(unidade_sigla).strip().upper() == "DESATIVADOS" else True
+        
+        c["visivel"] = db_data.get("visivel") if (db_data and db_data.get("visivel") is not None) else default_visivel
 
         if filter_hidden and c["visivel"] is False:
             continue

@@ -141,6 +141,12 @@ class OverrideRequest(BaseModel):
     visivel: Optional[bool] = None
     data_aniversario: Optional[str] = None
 
+class DepartamentoRequest(BaseModel):
+    sigla: str
+    nome_oficial: str
+    diretoria_pai: Optional[str] = None
+    ativo: Optional[bool] = True
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -215,6 +221,70 @@ def get_colaboradores_admin(
     except Exception as e:
         return {"status": "error", "message": str(e), "data": [], "total": 0}
 
+@app.get("/api/admin/departamentos")
+def get_departamentos_admin(_user = Depends(require_admin)):
+    """Admin — retorna todos os departamentos (ativos ou inativos) para o painel de Siglas."""
+    try:
+        from database_service import get_db_conn
+        from psycopg2.extras import RealDictCursor
+        with get_db_conn() as conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT id, sigla, nome_oficial, diretoria_pai, ativo FROM departamento ORDER BY sigla")
+            rows = cur.fetchall()
+            cur.close()
+            return {"status": "ok", "data": [dict(r) for r in rows]}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "data": []}
+
+@app.post("/api/admin/departamentos")
+def create_departamento_admin(body: DepartamentoRequest, _user = Depends(require_admin)):
+    """Admin — cria um novo departamento/sigla."""
+    try:
+        from database_service import get_db_conn
+        with get_db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO departamento (sigla, nome_oficial, diretoria_pai, ativo) VALUES (%s, %s, %s, %s) RETURNING id",
+                (body.sigla.strip().upper(), body.nome_oficial.strip(), body.diretoria_pai.strip().upper() if body.diretoria_pai else None, body.ativo)
+            )
+            new_id = cur.fetchone()[0]
+            conn.commit()
+            cur.close()
+            return {"status": "ok", "message": "Sigla criada com sucesso.", "id": new_id}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.put("/api/admin/departamentos/{id}")
+def update_departamento_admin(id: int, body: DepartamentoRequest, _user = Depends(require_admin)):
+    """Admin — atualiza um departamento/sigla existente."""
+    try:
+        from database_service import get_db_conn
+        with get_db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE departamento SET sigla = %s, nome_oficial = %s, diretoria_pai = %s, ativo = %s WHERE id = %s",
+                (body.sigla.strip().upper(), body.nome_oficial.strip(), body.diretoria_pai.strip().upper() if body.diretoria_pai else None, body.ativo, id)
+            )
+            conn.commit()
+            cur.close()
+            return {"status": "ok", "message": "Sigla atualizada com sucesso."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.delete("/api/admin/departamentos/{id}")
+def delete_departamento_admin(id: int, _user = Depends(require_admin)):
+    """Admin — exclui um departamento/sigla."""
+    try:
+        from database_service import get_db_conn
+        with get_db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM departamento WHERE id = %s", (id,))
+            conn.commit()
+            cur.close()
+            return {"status": "ok", "message": "Sigla excluída com sucesso."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @app.api_route("/api/admin/colaboradores/{username}/override", methods=["PUT", "POST"])
 def set_override(username: str, body: OverrideRequest, _user = Depends(require_admin)):
     try:
@@ -249,10 +319,17 @@ def remove_override(username: str, _user = Depends(require_admin)):
         return {"status": "error", "message": str(e)}
 
 @app.post("/api/admin/colaboradores/{username}/foto")
-def upload_user_photo(username: str, file: UploadFile = File(...), _user = Depends(require_admin)):
+def upload_user_photo(username: str, file: UploadFile = File(...), _user = Depends(get_current_user)):
     try:
-        if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-            return {"status": "error", "message": "Apenas arquivos .png, .jpg e .jpeg são permitidos."}
+        # Permite se for admin OU se for o próprio usuário
+        if not _user.get("isAdmin") and _user.get("username") != username:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso negado: Você só pode alterar sua própria foto.",
+            )
+            
+        if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+            return {"status": "error", "message": "Apenas arquivos .png, .jpg, .jpeg e .webp são permitidos."}
         
         FOTOS_DIR.mkdir(parents=True, exist_ok=True)
         ext = file.filename.lower().split('.')[-1]
@@ -271,12 +348,21 @@ def upload_user_photo(username: str, file: UploadFile = File(...), _user = Depen
         upsert_colaborador(username, {"foto_url": foto_url})
             
         return {"status": "ok", "message": "Foto enviada com sucesso.", "foto_url": foto_url}
+    except HTTPException:
+        raise
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 @app.delete("/api/admin/colaboradores/{username}/foto")
-def delete_user_photo(username: str, _user = Depends(require_admin)):
+def delete_user_photo(username: str, _user = Depends(get_current_user)):
     try:
+        # Permite se for admin OU se for o próprio usuário
+        if not _user.get("isAdmin") and _user.get("username") != username:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso negado: Você só pode remover sua própria foto.",
+            )
+
         print(f"[FOTO] Iniciando exclusão de foto para {username} no diretório {FOTOS_DIR}")
         encontrados = list(FOTOS_DIR.glob(f"{username}.*"))
         if not encontrados:
@@ -292,6 +378,8 @@ def delete_user_photo(username: str, _user = Depends(require_admin)):
         # Limpa no banco
         upsert_colaborador(username, {"foto_url": None})
         return {"status": "ok", "message": "Foto removida com sucesso."}
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[FOTO] Erro geral ao remover foto: {e}")
         return {"status": "error", "message": str(e)}
@@ -447,13 +535,15 @@ def upload_capa(file: UploadFile = File(...), _user = Depends(require_admin)):
         if not file.filename.lower().endswith('.png'):
             return {"status": "error", "message": "Apenas arquivos .png são permitidos."}
         
+        import os
+        safe_filename = os.path.basename(file.filename)
         CAPAS_DIR.mkdir(parents=True, exist_ok=True)
-        file_path = CAPAS_DIR / file.filename
+        file_path = CAPAS_DIR / safe_filename
         
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        return {"status": "ok", "message": f"Arquivo '{file.filename}' importado com sucesso."}
+        return {"status": "ok", "message": f"Arquivo '{safe_filename}' importado com sucesso."}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -479,6 +569,8 @@ def auth_login(request: Request, body: LoginRequest, response: Response):
         # Credenciais Admin de fallback (movidas para .env)
         ADMIN_USER = os.getenv("ADMIN_USER")
         ADMIN_PASS = os.getenv("ADMIN_PASS")
+        ANIV_USER = os.getenv("ANIV_USER", "aniversariantes.aeb")
+        ANIV_PASS = os.getenv("ANIV_PASS", "Ani@123aeb")
 
         is_admin = False
         user_payload = {}
@@ -493,9 +585,9 @@ def auth_login(request: Request, body: LoginRequest, response: Response):
             }
         
         # 2. Login especial de aniversariantes
-        elif body.username == "aniversariantes.aeb" and body.password == "Ani@123aeb":
+        elif body.username == ANIV_USER and body.password == ANIV_PASS:
             user_payload = {
-                "username": "aniversariantes.aeb",
+                "username": ANIV_USER,
                 "displayName": "Aniversariantes AEB",
                 "isAdmin": False,
                 "isAniversariantes": True
@@ -534,6 +626,8 @@ def auth_login(request: Request, body: LoginRequest, response: Response):
         # Gera o token JWT
         token = create_access_token(user_payload)
 
+        is_prod = os.getenv("ENVIRONMENT", "development").lower() == "production"
+
         # Configura cookie HttpOnly para segurança contra XSS
         response.set_cookie(
             key="access_token",
@@ -542,7 +636,7 @@ def auth_login(request: Request, body: LoginRequest, response: Response):
             max_age=3600 * 24, # 24h
             expires=3600 * 24,
             samesite="lax",    # Lax permite redirecionamentos comuns mas protege contra CSRF básico
-            secure=False       # Setar para True se usar HTTPS (recomendado em prod)
+            secure=is_prod     # True em prod (HTTPS), False em dev (HTTP)
         )
 
         return {

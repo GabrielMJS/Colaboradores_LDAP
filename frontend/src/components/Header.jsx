@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 
-export default function Header({ search, onSearch, unidade, onUnidade, availableUnidades = [] }) {
+export default function Header({ search, onSearch, unidade, onUnidade, availableUnidades = [], onLogoClick }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const theme = useTheme();
   const navigate = useNavigate();
@@ -22,7 +22,28 @@ export default function Header({ search, onSearch, unidade, onUnidade, available
       zIndex: 100,
     }}>
       {/* Logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div 
+        onClick={onLogoClick}
+        style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: 12,
+          cursor: onLogoClick ? "pointer" : "default",
+          transition: "transform 0.2s, opacity 0.2s",
+        }}
+        onMouseEnter={e => {
+          if (onLogoClick) {
+            e.currentTarget.style.transform = "scale(1.02)";
+            e.currentTarget.style.opacity = "0.9";
+          }
+        }}
+        onMouseLeave={e => {
+          if (onLogoClick) {
+            e.currentTarget.style.transform = "scale(1)";
+            e.currentTarget.style.opacity = "1";
+          }
+        }}
+      >
         <img 
           src={theme.isDark ? "/Images/logoBranca.png" : "/Images/logoAzul.png"} 
           alt="Logo AEB" 

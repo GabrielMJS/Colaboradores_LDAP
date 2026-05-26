@@ -94,17 +94,19 @@ def sync_ldap_to_db():
                     atualizados += 1
                 else:
                     # INSERT — novo colaborador
+                    visivel_default = False if ou_ldap == "DESATIVADOS" else True
                     cur.execute("""
                         INSERT INTO colaborador
                             (username, nome_completo, email, cargo, lotacao,
                              unidade_sigla, diretoria_sigla, coordenacao_sigla, visivel)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
                         username, nome, email,
                         to_title_case(cargo_ldap) if cargo_ldap else None,
                         dept_ldap, ou_ldap,
                         dir_sigla or None,
                         coor_sigla or None,
+                        visivel_default,
                     ))
                     inseridos += 1
 
