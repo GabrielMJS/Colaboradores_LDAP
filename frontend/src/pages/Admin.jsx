@@ -1210,49 +1210,49 @@ function AbaAssinatura() {
 
       // Logo placeholder
       ctx.fillStyle = "#1565c0";
-      ctx.fillRect(20, 30, 140, 110);
+      ctx.fillRect(5, 30, 140, 110); // Deslocado 15px para a esquerda (20 - 15)
       ctx.font = "bold 28px Verdana, sans-serif";
       ctx.fillStyle = "#FFFFFF";
-      ctx.fillText("AEB", 60, 95);
+      ctx.fillText("AEB", 45, 95); // Deslocado 15px para a esquerda (60 - 15)
 
       // Linha divisória
       ctx.strokeStyle = "rgba(255,255,255,0.15)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(175, 20);
-      ctx.lineTo(175, 160);
+      ctx.moveTo(160, 20); // Deslocado 15px para a esquerda (175 - 15)
+      ctx.lineTo(160, 160);
       ctx.stroke();
 
       // Textos
-      const textX = 176;
-      const startY = 40;
-      const lineH = 18;
+      const textX = 161; // Deslocado 15px para a esquerda (176 - 15)
+      const startY = 44; // Ajustado para centralizar com fontes médias
+      const lineH = 16; // Espaçamento entre linhas readequado para as fontes médias (-3px do estado anterior)
       const ramal = form.ramal || "";
       const email = form.email || "";
 
-      ctx.font = "bold 22px Verdana, sans-serif";
+      ctx.font = "bold 20px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (23 - 3)
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText(form.nome, textX, startY);
 
-      ctx.font = "11px Verdana, sans-serif";
+      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
       ctx.fillStyle = "#90caf9";
       ctx.fillText(form.cargo, textX, startY + lineH);
 
-      ctx.font = "11px Verdana, sans-serif";
+      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
       ctx.fillStyle = "#CCDDEE";
       ctx.fillText(form.lotacao, textX, startY + lineH * 2);
 
       // Diretoria
-      ctx.font = "11px Verdana, sans-serif";
+      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
       ctx.fillStyle = "#CCDDEE";
       ctx.fillText(form.diretoria || "", textX, startY + lineH * 3);
 
-      ctx.font = "bold 14px Verdana, sans-serif";
+      ctx.font = "bold 12px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (15 - 3)
       ctx.fillStyle = "#FFFFFF";
       ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 4 + 3);
 
       // Ramal e email
-      ctx.font = "11px Verdana, sans-serif";
+      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
       ctx.fillStyle = "#CCDDEE";
       ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 5 + 6);
 
@@ -1270,15 +1270,17 @@ function AbaAssinatura() {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
         // Usando proporções para ficar perfeito em qualquer resolução
-        const textX = canvas.width * 0.285 - 5;
-        let currentY = canvas.height * 0.31 - 10;
-        const lineSpacing = canvas.height * 0.11; // Espaço entre linhas
+        const visualScale = canvas.height / 180;
+        const shiftX = 15 * (canvas.width / 700);
+        const textX = canvas.width * 0.285 - 5 - shiftX;
+        let currentY = canvas.height * 0.31 - 10 + (4 * visualScale); // Centralização vertical readequada
+        const lineSpacing = canvas.height * 0.10; // Espaço entre linhas readequado para a fonte intermediária
 
-        // Tamanhos de fonte proporcionais
-        const fontNome = Math.round(canvas.height * 0.110) + 4;
-        const fontMedia = Math.round(canvas.height * 0.075);
+        // Tamanhos de fonte proporcionais diminuídos em 3px visual em relação ao estado anterior (-2px do original)
+        const fontNome = Math.round(canvas.height * 0.110) + 4 - Math.round(2 * visualScale);
+        const fontMedia = Math.round(canvas.height * 0.075) - Math.round(2 * visualScale);
         const fontPeq = fontMedia - 2; // Cargo, coordenação, diretoria, ramal/email
-        const fontAeb = Math.round(canvas.height * 0.098);
+        const fontAeb = Math.round(canvas.height * 0.098) - Math.round(2 * visualScale);
 
         // Nome
         ctx.font = `bold ${fontNome}px Verdana, sans-serif`;
