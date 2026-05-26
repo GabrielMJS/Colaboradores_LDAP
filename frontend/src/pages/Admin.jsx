@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -61,6 +61,8 @@ function AbaUsuarios() {
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
   const [unidadeFiltro, setUnidadeFiltro] = useState("");
+  const [filtroDropdownOpen, setFiltroDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
   const [editando, setEditando] = useState(null); // username em edição
   const [form, setForm] = useState({});
   const [salvando, setSalvando] = useState(false);
@@ -72,6 +74,18 @@ function AbaUsuarios() {
       .then(setColaboradores)
       .catch(() => setColaboradores([]))
       .finally(() => setCarregando(false));
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setFiltroDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const unidadesDisponiveis = useMemo(() => {
@@ -213,21 +227,89 @@ function AbaUsuarios() {
             <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted }}>🔍</span>
           </div>
 
-          <select
-            value={unidadeFiltro}
-            onChange={e => setUnidadeFiltro(e.target.value)}
-            style={{
-              ...inputStyle(theme),
-              width: 200,
-              cursor: "pointer",
-              height: 38,
-            }}
-          >
-            <option value="">Todas as unidades</option>
-            {unidadesDisponiveis.map(u => (
-              <option key={u} value={u}>{u}</option>
-            ))}
-          </select>
+          {/* Dropdown de Unidade Customizado */}
+          <div ref={dropdownRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => setFiltroDropdownOpen(o => !o)}
+              style={{
+                ...inputStyle(theme),
+                width: 200,
+                height: 38,
+                textAlign: "left",
+                cursor: "pointer",
+                paddingRight: 32,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                position: "relative",
+                color: unidadeFiltro === "" ? theme.inputPlaceholder : theme.inputColor,
+              }}
+            >
+              {unidadeFiltro || "Todas as unidades"}
+              <span style={{
+                position: "absolute",
+                right: 12,
+                top: "50%",
+                transform: `translateY(-50%) rotate(${filtroDropdownOpen ? 180 : 0}deg)`,
+                transition: "transform 0.2s",
+                color: theme.inputPlaceholder || theme.textMuted,
+                fontSize: 10,
+              }}>▼</span>
+            </button>
+
+            {filtroDropdownOpen && (
+              <div style={{
+                position: "absolute",
+                top: "calc(100% + 4px)",
+                left: 0,
+                width: 260,
+                background: theme.dropdownBg,
+                border: `1px solid ${theme.dropdownBorder}`,
+                borderRadius: 8,
+                maxHeight: 250,
+                overflowY: "auto",
+                zIndex: 200,
+                boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
+              }}>
+                <div
+                  onClick={() => { setUnidadeFiltro(""); setFiltroDropdownOpen(false); }}
+                  style={{
+                    padding: "9px 16px",
+                    fontSize: 13,
+                    cursor: "pointer",
+                    fontFamily: "'Inter', sans-serif",
+                    color: unidadeFiltro === "" ? theme.textAccent : theme.textSecondary,
+                    background: unidadeFiltro === "" ? theme.dropdownSelected : "transparent",
+                    transition: "background 0.15s",
+                    fontStyle: "italic",
+                  }}
+                  onMouseEnter={e => { if (unidadeFiltro !== "") e.currentTarget.style.background = theme.dropdownHover; }}
+                  onMouseLeave={e => { if (unidadeFiltro !== "") e.currentTarget.style.background = "transparent"; }}
+                >
+                  Todas as unidades
+                </div>
+                {unidadesDisponiveis.map(u => (
+                  <div
+                    key={u}
+                    onClick={() => { setUnidadeFiltro(u); setFiltroDropdownOpen(false); }}
+                    style={{
+                      padding: "9px 16px",
+                      fontSize: 13,
+                      cursor: "pointer",
+                      fontFamily: "'Inter', sans-serif",
+                      color: u === unidadeFiltro ? theme.textAccent : theme.textSecondary,
+                      background: u === unidadeFiltro ? theme.dropdownSelected : "transparent",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={e => { if (u !== unidadeFiltro) e.currentTarget.style.background = theme.dropdownHover; }}
+                    onMouseLeave={e => { if (u !== unidadeFiltro) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    {u}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'Inter', sans-serif" }}>
           {filtrados.length} de {colaboradores.length} colaboradores
