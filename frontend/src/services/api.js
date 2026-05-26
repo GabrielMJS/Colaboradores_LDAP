@@ -69,8 +69,11 @@ export async function saveOverride(username, fields) {
 // ------------------------------------------------------------------
 export async function deleteOverride(username) {
   const res = await fetch(`${BASE_URL}/api/admin/colaboradores/${username}/override`, {
-    method: "DELETE",
-    headers: getHeaders(),
+    method: "POST",
+    headers: {
+      ...getHeaders(),
+      "X-HTTP-Method-Override": "DELETE"
+    },
     credentials: "include"
   });
   if (!res.ok) throw new Error("Erro ao remover customizações");
@@ -156,8 +159,11 @@ export async function uploadCapa(file) {
 
 export async function deleteCapa(filename) {
   const res = await fetch(`${BASE_URL}/api/admin/capas/${encodeURIComponent(filename)}`, {
-    method: "DELETE",
-    headers: getHeaders(),
+    method: "POST",
+    headers: {
+      ...getHeaders(),
+      "X-HTTP-Method-Override": "DELETE"
+    },
     credentials: "include"
   });
   if (!res.ok) {
@@ -193,8 +199,11 @@ export async function uploadUserPhoto(username, file) {
 
 export async function deleteUserPhoto(username) {
   const res = await fetch(`${BASE_URL}/api/admin/colaboradores/${username}/foto`, {
-    method: "DELETE",
-    headers: getHeaders(),
+    method: "POST",
+    headers: {
+      ...getHeaders(),
+      "X-HTTP-Method-Override": "DELETE"
+    },
     credentials: "include"
   });
   
@@ -234,8 +243,11 @@ export async function createDepartamento(fields) {
 
 export async function updateDepartamento(id, fields) {
   const res = await fetch(`${BASE_URL}/api/admin/departamentos/${id}`, {
-    method: "PUT",
-    headers: getHeaders(),
+    method: "POST",
+    headers: {
+      ...getHeaders(),
+      "X-HTTP-Method-Override": "PUT"
+    },
     body: JSON.stringify(fields),
     credentials: "include"
   });
@@ -248,8 +260,11 @@ export async function updateDepartamento(id, fields) {
 
 export async function deleteDepartamento(id) {
   const res = await fetch(`${BASE_URL}/api/admin/departamentos/${id}`, {
-    method: "DELETE",
-    headers: getHeaders(),
+    method: "POST",
+    headers: {
+      ...getHeaders(),
+      "X-HTTP-Method-Override": "DELETE"
+    },
     credentials: "include"
   });
   const data = await res.json().catch(() => ({}));

@@ -127,6 +127,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def method_override_middleware(request: Request, call_next):
+    method_override = request.headers.get("x-http-method-override")
+    if method_override:
+        method = method_override.upper()
+        if method in ("PUT", "DELETE", "PATCH"):
+            request.scope["method"] = method
+    return await call_next(request)
+
 class LoginRequest(BaseModel):
     username: str
     password: str
