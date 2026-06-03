@@ -264,7 +264,7 @@ def apply_db_overrides(colaboradores: list, filter_hidden: bool = True) -> list:
 def backfill_lotacoes():
     """
     Preenche o campo 'lotacao' (nome completo) de colaboradores que tem apenas a sigla,
-    baseado na tabela 'departamento'.
+    baseado na tabela 'departamento', e atualiza as diretoria_sigla com base na tabela departamento.
     """
     with get_db_conn() as conn:
         cur = conn.cursor()
@@ -280,13 +280,26 @@ def backfill_lotacoes():
         """
         sql_cargo = "UPDATE colaborador SET cargo = INITCAP(cargo) WHERE cargo IS NOT NULL"
         
+        # SQL para corrigir diretoria_sigla com base no relacionamento departamento.diretoria_pai
+        sql_fix_diretorias = """
+            UPDATE colaborador c
+            SET diretoria_sigla = d.diretoria_pai
+            FROM departamento d
+            WHERE (c.coordenacao_sigla = d.sigla OR c.unidade_sigla = d.sigla)
+              AND d.diretoria_pai IS NOT NULL
+              AND d.diretoria_pai != ''
+              AND (c.diretoria_sigla IS NULL OR c.diretoria_sigla != d.diretoria_pai)
+        """
+        
         try:
             cur.execute(sql_lotacao)
             lot_count = cur.rowcount
             cur.execute(sql_cargo)
             cargo_count = cur.rowcount
+            cur.execute(sql_fix_diretorias)
+            fix_count = cur.rowcount
             conn.commit()
-            print(f"[DB] Cleanup: {lot_count} lotações preenchidas, {cargo_count} cargos em Title Case.")
+            print(f"[DB] Cleanup: {lot_count} lotações preenchidas, {cargo_count} cargos em Title Case, {fix_count} diretoria_sigla corrigidos.")
             return lot_count
         except Exception as e:
             print(f"[DB] Erro no backfill de lotações: {e}")
@@ -295,12 +308,45 @@ def backfill_lotacoes():
         finally:
             cur.close()
 
-# ---------------------------------------------------------------
-# DEPARTMENTS NORMALIZATION
-# ---------------------------------------------------------------
+class CoorToDirMapping(dict):
+    def get(self, key, default=None):
+        val = self._lookup(key)
+        return val if val is not None else default
+
+    def __getitem__(self, key):
+        val = self._lookup(key)
+        if val is None:
+            raise KeyError(key)
+        return val
+
+    def __contains__(self, key):
+        return self._lookup(key) is not None
+
+    def _lookup(self, key):
+        if not key:
+            return None
+        key_upper = str(key).strip().upper()
+        
+        # 1. Tenta buscar no banco de dados primeiro
+        try:
+            with get_db_conn() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT diretoria_pai FROM departamento WHERE sigla = %s AND ativo = TRUE AND diretoria_pai IS NOT NULL AND diretoria_pai != ''",
+                    (key_upper,)
+                )
+                row = cur.fetchone()
+                cur.close()
+                if row and row[0]:
+                    return row[0].strip().upper()
+        except Exception:
+            pass
+            
+        # 2. Se não achou ou deu erro, usa o dicionário estático (nós mesmos)
+        return super().get(key_upper, None)
 
 # Mapeamento sigla coordenação → sigla diretoria (extraído do Excel Força de Trabalho AEB)
-COOR_TO_DIR = {
+COOR_TO_DIR = CoorToDirMapping({
     # Presidência
     'PRE': 'PRE',
     # Unidades Regionais (são diretorias em si mesmas)
@@ -313,7 +359,7 @@ COOR_TO_DIR = {
     'PF': 'PF', 'ACI': 'ACI', 'AUDIN': 'AUDIN',
     # DPOA — Diretoria de Planejamento, Orçamento e Administração
     'DPOA': 'DPOA', 'COF': 'DPOA', 'CTI': 'DPOA',
-    'CGP': 'DPOA', 'COAD': 'DPOA',
+    'CGP': 'DPOA', 'COAD': 'DPOA', 'DCAD': 'DPOA',
     # DGSE — Diretoria de Governança do Setor Espacial
     'DGSE': 'DGSE', 'CMA': 'DGSE', 'CPP': 'DGSE', 'CEG': 'DGSE',
     # DGEP — Diretoria de Gestão de Portfólio
@@ -326,7 +372,7 @@ COOR_TO_DIR = {
     'MOVIMENTADO': 'MOVIMENTADO',
     # Legados/aliases
     'CTIC': 'DPOA', 'DSG': 'DGSE', 'DIPA': 'DPOA',
-}
+})
 
 def normalize_departments(colaboradores: list) -> list:
     """
