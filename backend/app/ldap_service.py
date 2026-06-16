@@ -11,7 +11,14 @@ from ldap3 import Server, Connection, ALL, SUBTREE
 from ldap3.utils.conv import escape_filter_chars
 from ldap3.core.exceptions import LDAPException, LDAPBindError, LDAPSocketOpenError
 from PIL import Image, ImageOps
+import time
+import json
+import os
+import copy
 
+# Cache na memoria para consultas (TTL de 5 minutos)
+_LDAP_CACHE = {}
+_CACHE_FILE = os.path.join(os.path.dirname(__file__), ".ldap_cache.json")
 
 class LDAPService:
     def __init__(self):
@@ -63,12 +70,32 @@ class LDAPService:
     # Busca de todos os colaboradores (para a tabela principal)
     # ------------------------------------------------------------------
 
-    def search_all_users(self, unidade: Optional[str] = None) -> list[dict]:
+    def search_all_users(self, unidade: Optional[str] = None, force_refresh: bool = False) -> list[dict]:
         """
         Retorna apenas usuários ATIVOS com e-mail cadastrado.
         Contas desativadas no AD (bit 2 do userAccountControl) são excluídas.
         Opcionalmente filtra por unidade (OU).
         """
+        cache_key = f"all_users_{unidade}"
+        
+        # 1. Tenta pegar do cache em memória (se não estiver forçando atualização)
+        if not force_refresh and cache_key in _LDAP_CACHE:
+            cached_data, timestamp = _LDAP_CACHE[cache_key]
+            if time.time() - timestamp < 300:  # 5 minutos de cache
+                return copy.deepcopy(cached_data)
+
+        # 2. Tenta pegar do cache em disco (útil logo após reiniciar o servidor)
+        if not force_refresh and os.path.exists(_CACHE_FILE) and not unidade:
+            try:
+                # Usa o cache de disco se tiver menos de 24 horas
+                if time.time() - os.path.getmtime(_CACHE_FILE) < 86400:
+                    with open(_CACHE_FILE, "r", encoding="utf-8") as f:
+                        disk_data = json.load(f)
+                        _LDAP_CACHE[cache_key] = (disk_data, time.time())
+                        return copy.deepcopy(disk_data)
+            except Exception as e:
+                print(f"[LDAP] Erro ao ler cache de disco: {e}")
+
         conn = self._get_service_connection()
         try:
             # Exclui contas desativadas verificando o bit 2 do userAccountControl
@@ -88,7 +115,20 @@ class LDAPService:
                 attributes=self.atributos,
             )
 
-            return [self._parse_entry(entry) for entry in conn.entries]
+            result = [self._parse_entry(entry) for entry in conn.entries]
+            
+            # Atualiza cache em memoria
+            _LDAP_CACHE[cache_key] = (result, time.time())
+            
+            # Salva cache em disco para a proxima inicializacao (se for busca geral)
+            if not unidade:
+                try:
+                    with open(_CACHE_FILE, "w", encoding="utf-8") as f:
+                        json.dump(result, f)
+                except Exception as e:
+                    print(f"[LDAP] Erro ao salvar cache de disco: {e}")
+                    
+            return result
 
         except LDAPException as e:
             raise Exception(f"Erro ao buscar colaboradores: {e}")
@@ -180,11 +220,11 @@ class LDAPService:
     def _parse_entry(self, entry) -> dict:
         """
         Converte entrada ldap3 para dict simples e seguro para JSON.
-        Trata foto (bytes → base64) e valores multivalorados.
+        Trata foto (bytes -> base64) e valores multivalorados.
 
         IMPORTANTE: Para atributos binários (foto), usamos entry[attr].raw_values
         que retorna os bytes brutos do protocolo LDAP sem nenhuma interpretação
-        do schema — ao contrário de .value que pode transformar/perder os dados.
+        do schema - ao contrário de .value que pode transformar/perder os dados.
         """
         parsed = {"dn": entry.entry_dn}
 

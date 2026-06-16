@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
+import DropdownHierarquico from "./DropdownHierarquico";
 
-export default function Header({ search, onSearch, unidade, onUnidade, availableUnidades = [], onLogoClick }) {
+export default function Header({ search, onSearch, unidade, onUnidade, departamentos = [], onLogoClick }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const theme = useTheme();
   const navigate = useNavigate();
@@ -94,6 +95,17 @@ export default function Header({ search, onSearch, unidade, onUnidade, available
           ✍ Assinaturas
         </button>
 
+        {/* Dropdown unidade */}
+        <div style={{ width: 240, zIndex: 200 }}>
+          <DropdownHierarquico
+            value={unidade}
+            onChange={onUnidade}
+            theme={theme}
+            departamentos={departamentos}
+            placeholder="Selecionar Unidade"
+          />
+        </div>
+
         {/* Search */}
         <div style={{ position: "relative" }}>
           <input
@@ -125,79 +137,6 @@ export default function Header({ search, onSearch, unidade, onUnidade, available
             fontSize: 14,
             pointerEvents: "none",
           }}>🔍</span>
-        </div>
-
-        {/* Dropdown unidade */}
-        <div style={{ position: "relative" }}>
-          <button
-            onClick={() => setDropdownOpen(o => !o)}
-            style={{
-              background: theme.inputBg,
-              border: `1px solid ${theme.inputBorder}`,
-              borderRadius: 6,
-              color: unidade === "Selecionar Unidade" ? theme.inputPlaceholder : theme.inputColor,
-              padding: "8px 32px 8px 14px",
-              fontSize: 13,
-              width: 240,
-              textAlign: "left",
-              cursor: "pointer",
-              fontFamily: "'Inter', sans-serif",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              position: "relative",
-            }}
-          >
-            {unidade}
-            <span style={{
-              position: "absolute",
-              right: 10,
-              top: "50%",
-              transform: `translateY(-50%) rotate(${dropdownOpen ? 180 : 0}deg)`,
-              transition: "transform 0.2s",
-              color: theme.inputPlaceholder,
-              fontSize: 10,
-            }}>▼</span>
-          </button>
-
-          {dropdownOpen && (
-            <div style={{
-              position: "absolute",
-              top: "calc(100% + 4px)",
-              right: 0,
-              width: 340,
-              background: theme.dropdownBg,
-              border: `1px solid ${theme.dropdownBorder}`,
-              borderRadius: 8,
-              backdropFilter: "blur(16px)",
-              maxHeight: 320,
-              overflowY: "auto",
-              zIndex: 200,
-              animation: "slideDown 0.15s ease",
-              boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
-            }}>
-              {availableUnidades.map(u => (
-                <div
-                  key={u}
-                  onClick={() => { onUnidade(u); setDropdownOpen(false); }}
-                  style={{
-                    padding: "9px 16px",
-                    fontSize: 13,
-                    color: u === unidade ? theme.textAccent : theme.textSecondary,
-                    cursor: "pointer",
-                    fontFamily: "'Inter', sans-serif",
-                    background: u === unidade ? theme.dropdownSelected : "transparent",
-                    transition: "background 0.15s",
-                    fontStyle: u === "Selecionar Unidade" ? "italic" : "normal",
-                  }}
-                  onMouseEnter={e => { if (u !== unidade) e.currentTarget.style.background = theme.dropdownHover; }}
-                  onMouseLeave={e => { if (u !== unidade) e.currentTarget.style.background = "transparent"; }}
-                >
-                  {u}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Theme toggle */}

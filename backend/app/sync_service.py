@@ -31,7 +31,7 @@ def sync_ldap_to_db():
     """
     print("[SYNC] Conectando ao LDAP...")
     service = LDAPService()
-    ldap_users = service.search_all_users()
+    ldap_users = service.search_all_users(force_refresh=True)
     print(f"[SYNC] {len(ldap_users)} usuarios ativos encontrados no LDAP.")
 
     with get_db_conn() as conn:

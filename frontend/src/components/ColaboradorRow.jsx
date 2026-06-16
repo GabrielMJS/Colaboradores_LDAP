@@ -14,7 +14,7 @@ const ColaboradorRow = memo(({ colaborador }) => {
         onClick={() => setExpanded(e => !e)}
         style={{
           display: "grid",
-          gridTemplateColumns: "80px 1fr 100px 130px 1fr 90px 220px 180px",
+          gridTemplateColumns: "80px 1.5fr 110px 120px 120px 90px 220px 180px",
           alignItems: "center",
           gap: 16,
           padding: "14px 24px",
@@ -45,36 +45,42 @@ const ColaboradorRow = memo(({ colaborador }) => {
         </div>
 
         {/* Diretoria */}
-        <div style={{
+        <div title={colaborador.diretoria_nome || colaborador.diretoria} style={{
           color: theme.textAccent,
           fontFamily: "'Inter', sans-serif",
           fontWeight: 600,
           fontSize: 13,
           letterSpacing: "0.05em",
           textAlign: "center",
+          cursor: "help",
         }}>
-          {colaborador.diretoria}
+          {colaborador.diretoria || ""}
         </div>
 
         {/* Coordenação */}
-        <div style={{
+        <div title={colaborador.coordenacao_nome || colaborador.coordenacao} style={{
           color: theme.textAccent,
           fontFamily: "'Inter', sans-serif",
           fontWeight: 600,
           fontSize: 13,
           letterSpacing: "0.05em",
           textAlign: "center",
+          cursor: "help",
         }}>
-          {colaborador.unidade}
+          {colaborador.coordenacao || ""}
         </div>
 
-        {/* Lotação */}
-        <div style={{
+        {/* Divisão */}
+        <div title={colaborador.divisao_nome || colaborador.divisao} style={{
           color: theme.textSecondary,
           fontFamily: "'Inter', sans-serif",
+          fontWeight: 600,
           fontSize: 13,
+          letterSpacing: "0.05em",
+          textAlign: "center",
+          cursor: "help",
         }}>
-          {colaborador.lotacao}
+          {colaborador.divisao || ""}
         </div>
 
         {/* Ramal */}

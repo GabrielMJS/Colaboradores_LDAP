@@ -3,7 +3,7 @@ import { useTheme } from "../context/ThemeContext";
 import Header from "../components/Header";
 import Stars from "../components/Stars";
 import ColaboradorRow from "../components/ColaboradorRow";
-import { fetchColaboradores } from "../services/api";
+import { fetchColaboradores, fetchDepartamentos } from "../services/api";
 
 function extrairRamalCurto(telephoneNumber) {
   if (!telephoneNumber) return "";
@@ -17,14 +17,22 @@ function normalizarColaborador(c, index) {
   let ramal = extrairRamalCurto(c.telephoneNumber);
   const email = c.mail || "";
   const lotacao = (c.department || "").trim();
-  const unidade = (c.ou || c.department || "").trim();
+  const coordenacao = (c.coordenacao_sigla || "").trim();
   const diretoria = (c.diretoria_sigla || "").trim();
+  const divisao = (c.divisao_sigla || "").trim();
+  const diretoria_nome = c.diretoria_nome || "";
+  const coordenacao_nome = c.coordenacao_nome || "";
+  const divisao_nome = c.divisao_nome || "";
 
   return {
     id:      c.sAMAccountName || c.dn || index,
     nome,
     diretoria,
-    unidade,
+    coordenacao,
+    divisao,
+    diretoria_nome,
+    coordenacao_nome,
+    divisao_nome,
     lotacao,
     ramal,
     email,
@@ -38,7 +46,8 @@ export default function Home() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [search, setSearch] = useState("");
-  const [unidade, setUnidade] = useState("Selecionar Unidade");
+  const [unidade, setUnidade] = useState("");
+  const [departamentos, setDepartamentos] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const theme = useTheme();
 
@@ -49,8 +58,14 @@ export default function Home() {
   const carregarDados = () => {
     setCarregando(true);
     setErro("");
-    fetchColaboradores()
-      .then(dados => setColaboradores(dados))
+    Promise.all([
+      fetchColaboradores(),
+      fetchDepartamentos()
+    ])
+      .then(([dadosColab, dadosDept]) => {
+        setColaboradores(dadosColab);
+        setDepartamentos(dadosDept);
+      })
       .catch(() => setErro("Não foi possível carregar os colaboradores."))
       .finally(() => setCarregando(false));
   };
@@ -58,15 +73,6 @@ export default function Home() {
   useEffect(() => {
     carregarDados();
   }, []);
-
-  const availableUnidades = useMemo(() => {
-    const lotacoes = colaboradores
-      .map(c => (c.ou || c.department || "").trim())
-      .filter(d => d !== "");
-    // Remove duplicatas e ordena alfabeticamente
-    const unique = [...new Set(lotacoes)].sort();
-    return ["Selecionar Unidade", ...unique];
-  }, [colaboradores]);
 
   const filtered = useMemo(() => {
     const removeAcentos = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -79,16 +85,28 @@ export default function Home() {
       
       const matchSearch = nomeNormalizado.includes(searchNormalizado);
       
-      const siglaUnidade = (c.ou || c.department || "").trim();
-
+      const ou = (c.ou || c.department || "").trim();
       const matchUnidade =
-        unidade === "Selecionar Unidade" ||
-        siglaUnidade === unidade;
+        !unidade ||
+        ou === unidade ||
+        (c.diretoria_sigla || "").trim() === unidade ||
+        (c.coordenacao_sigla || "").trim() === unidade ||
+        (c.divisao_sigla || "").trim() === unidade;
         
       return matchSearch && matchUnidade;
     });
     
     result.sort((a, b) => {
+      if (unidade) {
+        const ouA = (a.ou || a.department || "").trim();
+        const ouB = (b.ou || b.department || "").trim();
+        const isPrimaryA = ouA === unidade;
+        const isPrimaryB = ouB === unidade;
+        
+        if (isPrimaryA && !isPrimaryB) return -1;
+        if (!isPrimaryA && isPrimaryB) return 1;
+      }
+      
       const nameA = a.displayName || a.cn || "";
       const nameB = b.displayName || b.cn || "";
       return nameA.localeCompare(nameB);
@@ -133,10 +151,10 @@ export default function Home() {
           onSearch={setSearch}
           unidade={unidade}
           onUnidade={setUnidade}
-          availableUnidades={availableUnidades}
+          departamentos={departamentos}
           onLogoClick={() => {
             setSearch("");
-            setUnidade("Selecionar Unidade");
+            setUnidade("");
             carregarDados();
           }}
         />
@@ -152,19 +170,19 @@ export default function Home() {
           }}>
             <div style={{
               display: "grid",
-              gridTemplateColumns: "80px 1fr 100px 130px 1fr 90px 220px 180px",
+              gridTemplateColumns: "80px 1.5fr 110px 120px 120px 90px 220px 180px",
               gap: 16,
               padding: "12px 24px",
               borderBottom: theme.rowBorder,
               background: theme.tableHeaderBg,
             }}>
-              {["FOTO", "NOME", "DIRETORIA", "COORDENAÇÃO", "LOTAÇÃO", "RAMAL", "E-MAIL", "CARGO"].map(h => (
+              {["FOTO", "NOME", "DIRETORIA", "COORDENAÇÃO", "DIVISÃO", "RAMAL", "E-MAIL", "CARGO"].map(h => (
                 <div key={h} style={{
                   fontFamily: "'Inter', sans-serif",
                   fontWeight: 600, fontSize: 11,
                   letterSpacing: "0.12em",
                   color: theme.tableHeaderColor,
-                  textAlign: ["FOTO", "RAMAL", "DIRETORIA", "COORDENAÇÃO"].includes(h) ? "center" : "left",
+                  textAlign: ["FOTO", "RAMAL", "DIRETORIA", "COORDENAÇÃO", "DIVISÃO"].includes(h) ? "center" : "left",
                 }}>
                   {h}
                 </div>

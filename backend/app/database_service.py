@@ -200,30 +200,14 @@ def apply_db_overrides(colaboradores: list, filter_hidden: bool = True) -> list:
 
     db_map = {row["username"]: dict(row) for row in rows}
     
-    import json
-    import os
-    name_overrides = {}
-    overrides_file = os.path.join(os.path.dirname(__file__), "name_overrides.json")
-    if os.path.exists(overrides_file):
-        try:
-            with open(overrides_file, "r", encoding="utf-8") as f:
-                name_overrides = json.load(f)
-        except Exception:
-            pass
-
     result = []
     for c in colaboradores:
         username = c.get("sAMAccountName", "")
         db_data = db_map.get(username, {})
-        
-        if username in name_overrides:
-            c["displayName"] = name_overrides[username]
-            c["cn"] = name_overrides[username]
-            if db_data:
-                db_data["nome_completo"] = name_overrides[username]
-
-
         # Campos do banco sobrescrevem LDAP (se admin editou)
+        if db_data.get("nome_completo"):
+            c["displayName"] = db_data["nome_completo"]
+            c["cn"] = db_data["nome_completo"]
         if db_data.get("ramal"):
             c["telephoneNumber"] = db_data["ramal"]
         if db_data.get("cargo"):
@@ -326,23 +310,6 @@ class CoorToDirMapping(dict):
         if not key:
             return None
         key_upper = str(key).strip().upper()
-        
-        # 1. Tenta buscar no banco de dados primeiro
-        try:
-            with get_db_conn() as conn:
-                cur = conn.cursor()
-                cur.execute(
-                    "SELECT diretoria_pai FROM departamento WHERE sigla = %s AND ativo = TRUE AND diretoria_pai IS NOT NULL AND diretoria_pai != ''",
-                    (key_upper,)
-                )
-                row = cur.fetchone()
-                cur.close()
-                if row and row[0]:
-                    return row[0].strip().upper()
-        except Exception:
-            pass
-            
-        # 2. Se não achou ou deu erro, usa o dicionário estático (nós mesmos)
         return super().get(key_upper, None)
 
 # Mapeamento sigla coordenação → sigla diretoria (extraído do Excel Força de Trabalho AEB)
@@ -374,6 +341,68 @@ COOR_TO_DIR = CoorToDirMapping({
     'CTIC': 'DPOA', 'DSG': 'DGSE', 'DIPA': 'DPOA',
 })
 
+def get_departamento_hierarchy():
+    """
+    Retorna a hierarquia de todos os departamentos (para construir o caminho Diretoria -> Coordenacao -> Divisao)
+    """
+    with get_db_conn() as conn:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT sigla, nome_oficial, diretoria_pai FROM departamento WHERE ativo = TRUE")
+        rows = cur.fetchall()
+        cur.close()
+        
+        dept_dict = {}
+        for row in rows:
+            dept_dict[row["sigla"].strip().upper()] = {
+                "sigla": row["sigla"].strip().upper(),
+                "diretoria_pai": row["diretoria_pai"].strip().upper() if row["diretoria_pai"] else None,
+                "nome_oficial": row["nome_oficial"].strip()
+            }
+        return dept_dict
+
+def resolve_hierarchy(sigla, dept_dict):
+    """
+    Retorna os 3 niveis da hierarquia para a sigla dada.
+    """
+    if not sigla or sigla not in dept_dict:
+        return "", "", "", "", "", ""
+        
+    path = []
+    current = sigla
+    while current and current in dept_dict:
+        # Prevent infinite loops in case of bad DB data
+        if current in [p["sigla"] for p in path]:
+            break
+        path.append(dept_dict[current])
+        current = dept_dict[current]["diretoria_pai"]
+        
+    path.reverse()
+    
+    # Remove root level nodes if the path is deep enough
+    while len(path) > 1 and path[0]["sigla"] in ["AEB", "PRE"]:
+        path = path[1:]
+        
+    # Ensure known Diretoria is at path[0] if it's missing from DB
+    if len(path) > 0:
+        top_sigla = path[0]["sigla"]
+        dir_pai = COOR_TO_DIR.get(top_sigla)
+        if dir_pai and dir_pai != top_sigla:
+            missing_node = dept_dict.get(dir_pai, {
+                "sigla": dir_pai, 
+                "nome_oficial": dir_pai, 
+                "diretoria_pai": None
+            })
+            path.insert(0, missing_node)
+    
+    d_sig = path[0]["sigla"] if len(path) >= 1 else ""
+    d_nom = path[0]["nome_oficial"] if len(path) >= 1 else ""
+    c_sig = path[1]["sigla"] if len(path) >= 2 else ""
+    c_nom = path[1]["nome_oficial"] if len(path) >= 2 else ""
+    div_sig = path[2]["sigla"] if len(path) >= 3 else ""
+    div_nom = path[2]["nome_oficial"] if len(path) >= 3 else ""
+    
+    return d_sig, c_sig, div_sig, d_nom, c_nom, div_nom
+
 def normalize_departments(colaboradores: list) -> list:
     """
     Normaliza a lotação (department) de todos os colaboradores usando
@@ -381,7 +410,9 @@ def normalize_departments(colaboradores: list) -> list:
     """
     import difflib
     siglas_dict = get_siglas_map()
+    reverse_map = get_siglas_reverse_map()
     secoes_oficiais = list(siglas_dict.keys())
+    dept_hierarchy = get_departamento_hierarchy()
 
     for c in colaboradores:
         # Substituição da sigla CTIC por CTI
@@ -390,12 +421,6 @@ def normalize_departments(colaboradores: list) -> list:
             ou_upper = ou.strip().upper()
             if ou_upper == "CTIC":
                 c["ou"] = "CTI"
-            elif ou_upper in ["DSG", "DGSE"]:
-                c["ou"] = "DGSE"
-                c["department"] = "DIRETORIA DE GOVERNANÇA DO SETOR ESPACIAL"
-            elif ou_upper == "DIPA":
-                c["ou"] = "DIPA"
-                c["department"] = "DIVISÃO DE PLANEJAMENTO E AQUISIÇÕES"
 
         dept = c.get("department", "")
         if dept:
@@ -422,30 +447,51 @@ def normalize_departments(colaboradores: list) -> list:
             elif not c.get("ou"):
                 c["ou"] = "—" # Fallback visual se realmente não tivermos nada
         
-        # Populate Diretoria information
-        # Se o banco tem coordenacao_sigla, recalcula a diretoria a partir dela (COOR_TO_DIR)
-        # Se o banco tem diretoria_sigla explicitamente, ela prevalece como override final
-        if c.get("_db_coordenacao_sigla"):
-            # Admin definiu coordenação → recalcula diretoria automaticamente
-            coor = c["_db_coordenacao_sigla"]
-            dir_sigla = COOR_TO_DIR.get(coor.upper(), coor)
-            c["ou"] = coor
-        elif c.get("_db_diretoria_sigla"):
-            dir_sigla = c["_db_diretoria_sigla"]
-        else:
-            final_ou = c.get("ou", "")
-            dir_sigla = COOR_TO_DIR.get(final_ou.upper(), final_ou)
+        # Populate hierarchy using database
+        lowest_node = c.get("_db_unidade_sigla") or c.get("ou", "")
+        
+        d_sig, c_sig, div_sig, d_nom, c_nom, div_nom = resolve_hierarchy(lowest_node.strip().upper(), dept_hierarchy)
 
-        # Override explícito de diretoria do banco tem prioridade máxima
-        if c.get("_db_diretoria_sigla"):
-            dir_sigla = c["_db_diretoria_sigla"]
+        # Se não encontrou na hierarquia, faz fallback pra lógica antiga
+        if not d_sig:
+            d_sig = COOR_TO_DIR.get(lowest_node.strip().upper(), lowest_node)
+            c_sig = lowest_node if d_sig != lowest_node else ""
+            d_nom = c.get("department", "")
+            c_nom = c.get("department", "") if c_sig else ""
 
-        c["diretoria_sigla"] = dir_sigla
+        # A hierarquia real resolvida pela função resolve_hierarchy a partir da lowest_node
+        # já é a fonte da verdade definitiva. Nenhuma sobreposição parcial é necessária,
+        # pois o backend e o front-end só editam a 'unidade_sigla' (lowest_node).
 
-        reverse_map = {v: k for k, v in siglas_dict.items()}
-        c["diretoria"] = reverse_map.get(dir_sigla.upper(), dir_sigla)
-        c["unidade"] = c.get("ou", "")
-        c["lotacao"] = c.get("department", "")
+        # Garante que os nomes por extenso estão corretos baseados nas siglas finais
+        if d_sig and d_sig in reverse_map:
+            d_nom = reverse_map[d_sig]
+        if c_sig and c_sig in reverse_map:
+            c_nom = reverse_map[c_sig]
+        if div_sig and div_sig in reverse_map:
+            div_nom = reverse_map[div_sig]
+
+        # Desduplicação: Se a pessoa tem só diretoria, não repita ela em coordenação/divisão
+        if div_sig and div_sig == c_sig:
+            div_sig = ""
+            div_nom = ""
+        
+        if c_sig and c_sig == d_sig:
+            c_sig = ""
+            c_nom = ""
+
+        c["diretoria_sigla"] = d_sig
+        c["coordenacao_sigla"] = c_sig
+        c["divisao_sigla"] = div_sig
+        
+        c["diretoria_nome"] = d_nom
+        c["coordenacao_nome"] = c_nom
+        c["divisao_nome"] = div_nom
+
+        c["diretoria"] = d_sig
+        c["unidade"] = c_sig
+        c["divisao"] = div_sig
+        c["lotacao"] = d_nom if not c_nom and not div_nom else (div_nom if div_nom else c_nom)
 
     return colaboradores
 

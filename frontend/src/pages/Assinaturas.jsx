@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { fetchCapas, fetchColaboradores, uploadUserPhoto, deleteUserPhoto } from "../services/api";
+import { drawSignature } from "../utils/signatureUtils";
 
 // Removidas as larguras hardcoded para podermos usar o tamanho real da imagem
 
@@ -55,9 +56,9 @@ export default function Assinaturas() {
   const colaborador = user ? {
     nome: user.displayName || user.username || "Usuário não identificado",
     cargo: user.title || "Cargo não informado",
-    lotacao: user.department || "Lotação não informada",
-    diretoria: user.diretoria || user.diretoria_sigla || "",
-    coordenacao: user.ou || "",
+    divisao_nome: user.divisao_nome || "",
+    coordenacao_nome: user.coordenacao_nome || "",
+    diretoria_nome: user.diretoria_nome || "",
     email: user.email || "",
     ramal: user.ramal || "",
   } : null;
@@ -238,141 +239,14 @@ export default function Assinaturas() {
 
   const capa = capas.find(c => c.id === Number(capaId));
 
-  function gerarAssinatura() {
+  async function gerarAssinatura() {
     if (!colaborador || !capa) return;
+    
+    // Atualiza o colaborador.ramal com o que está no input antes de gerar
+    const colabDados = { ...colaborador, ramal: ramal };
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = capa.arquivo;
-
-    img.onload = () => {
-      // Define o tamanho do canvas para o tamanho REAL da imagem (ex: 3663x818)
-      canvas.width = img.width;
-      canvas.height = img.height;
-
-      // Desenha a capa como fundo
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-      // Usando proporções para ficar perfeito em qualquer resolução
-      const visualScale = canvas.height / 180;
-      const shiftX = 15 * (canvas.width / 700);
-      const textX = canvas.width * 0.285 - 5 - shiftX;
-      let currentY = canvas.height * 0.31 - 10 + (4 * visualScale); // Centralização vertical readequada
-      const lineSpacing = canvas.height * 0.10; // Espaço entre linhas readequado para a fonte intermediária
-
-      // Tamanhos de fonte proporcionais diminuídos em 3px visual em relação ao estado anterior (-2px do original)
-      const fontNome = Math.round(canvas.height * 0.110) + 4 - Math.round(2 * visualScale);
-      const fontMedia = Math.round(canvas.height * 0.075) - Math.round(2 * visualScale);
-      const fontPeq = fontMedia - 2; // Cargo, coordenação, diretoria, ramal/email
-      const fontAeb = Math.round(canvas.height * 0.098) - Math.round(2 * visualScale);
-
-      // Nome
-      ctx.font = `bold ${fontNome}px Verdana, sans-serif`;
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(colaborador.nome, textX, currentY);
-      currentY += lineSpacing;
-
-      // Cargo
-      ctx.font = `${fontPeq}px Verdana, sans-serif`;
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(colaborador.cargo, textX, currentY);
-      currentY += lineSpacing - (canvas.height * 0.01);
-
-      // Coordenação / Lotação
-      ctx.font = `${fontPeq}px Verdana, sans-serif`;
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(colaborador.lotacao, textX, currentY);
-      currentY += lineSpacing;
-
-      // Diretoria
-      ctx.font = `${fontPeq}px Verdana, sans-serif`;
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(colaborador.diretoria || "", textX, currentY);
-      currentY += lineSpacing + (canvas.height * 0.01);
-
-      // Agência Espacial Brasileira
-      ctx.font = `bold ${fontAeb}px Verdana, sans-serif`;
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText("Agência Espacial Brasileira", textX, currentY);
-      currentY += lineSpacing + (canvas.height * 0.01);
-
-      // Tratamento do ramal: garantindo que começará com (61) 2033 -
-      const apenasDigitos = ramal.replace(/\D/g, '');
-      const digitosFinais = apenasDigitos.slice(-4);
-      const ramalFormatado = `(61) 2033-${digitosFinais || "XXXX"}`;
-
-      // Ramal e email
-      ctx.font = `${fontPeq}px Verdana, sans-serif`;
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(`${ramalFormatado}    ${email}`, textX, currentY);
-
-      // Gera preview
-      setPreview(canvas.toDataURL("image/png"));
-    };
-
-    img.onerror = () => {
-      // Capa não encontrada: gera com fundo padrão
-      canvas.width = 700;
-      canvas.height = 180;
-      ctx.fillStyle = "#0d1f3c";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Borda arredondada visual
-      ctx.strokeStyle = "rgba(100,150,255,0.3)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
-
-      // Logo placeholder
-      ctx.fillStyle = "#1565c0";
-      ctx.fillRect(5, 30, 140, 110); // Deslocado 15px para a esquerda (20 - 15)
-      ctx.font = "bold 28px Verdana, sans-serif";
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText("AEB", 45, 95); // Deslocado 15px para a esquerda (60 - 15)
-
-      // Linha divisória
-      ctx.strokeStyle = "rgba(255,255,255,0.15)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(160, 20); // Deslocado 15px para a esquerda (175 - 15)
-      ctx.lineTo(160, 160);
-      ctx.stroke();
-
-      // Textos
-      const textX = 161; // Deslocado 15px para a esquerda (176 - 15)
-      const startY = 44; // Ajustado para centralizar com fontes médias
-      const lineH = 16; // Espaçamento entre linhas readequado para as fontes médias (-3px do estado anterior)
-
-      ctx.font = "bold 20px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (23 - 3)
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(colaborador.nome, textX, startY);
-
-      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
-      ctx.fillStyle = "#90caf9";
-      ctx.fillText(colaborador.cargo, textX, startY + lineH);
-
-      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
-      ctx.fillStyle = "#CCDDEE";
-      ctx.fillText(colaborador.lotacao, textX, startY + lineH * 2);
-
-      // Diretoria
-      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
-      ctx.fillStyle = "#CCDDEE";
-      ctx.fillText(colaborador.diretoria || "", textX, startY + lineH * 3);
-
-      ctx.font = "bold 12px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (15 - 3)
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 4 + 3);
-
-      // Ramal e email
-      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
-      ctx.fillStyle = "#CCDDEE";
-      ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 5 + 6);
-
-      setPreview(canvas.toDataURL("image/png"));
-    };
+    const dataUrl = await drawSignature(canvasRef.current, colabDados, capa.arquivo);
+    if (dataUrl) setPreview(dataUrl);
   }
 
   function baixarAssinatura() {
@@ -664,10 +538,11 @@ export default function Assinaturas() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px 40px" }}>
                     {[
                       { label: "Nome", value: colaborador.nome },
-                      { label: "Diretoria", value: colaborador.diretoria },
                       { label: "Cargo", value: colaborador.cargo },
-                      { label: "Coordenação", value: colaborador.lotacao },
-                    ].map(f => (
+                      { label: "Divisão", value: colaborador.divisao_nome },
+                      { label: "Coordenação", value: colaborador.coordenacao_nome },
+                      { label: "Diretoria", value: colaborador.diretoria_nome },
+                    ].filter(f => f.value).map(f => (
                       <div key={f.label}>
                         <span style={{ ...labelStyle, marginBottom: 4 }}>{f.label}</span>
                         <div style={{

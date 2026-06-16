@@ -4,7 +4,8 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import Avatar from "../components/Avatar";
 import { fetchColaboradoresAdmin, saveOverride, deleteOverride, fetchCapas, uploadCapa, deleteCapa, uploadUserPhoto, deleteUserPhoto, fetchDepartamentosAdmin, createDepartamento, updateDepartamento, deleteDepartamento } from "../services/api";
-
+import { drawSignature } from "../utils/signatureUtils";
+import DropdownHierarquico from "../components/DropdownHierarquico";
 // -------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------
@@ -62,6 +63,7 @@ function AbaUsuarios() {
   const [busca, setBusca] = useState("");
   const [unidadeFiltro, setUnidadeFiltro] = useState("");
   const [filtroDropdownOpen, setFiltroDropdownOpen] = useState(false);
+  const [departamentos, setDepartamentos] = useState([]);
   const dropdownRef = useRef(null);
   const [editando, setEditando] = useState(null); // username em edição
   const [form, setForm] = useState({});
@@ -70,10 +72,16 @@ function AbaUsuarios() {
   const [uploadingFoto, setUploadingFoto] = useState(false);
 
   useEffect(() => {
-    fetchColaboradoresAdmin()
-      .then(setColaboradores)
-      .catch(() => setColaboradores([]))
-      .finally(() => setCarregando(false));
+    Promise.all([
+      fetchColaboradoresAdmin(),
+      fetchDepartamentosAdmin()
+    ]).then(([colabsData, depsData]) => {
+      setColaboradores(colabsData);
+      setDepartamentos(depsData);
+    }).catch(() => {
+      setColaboradores([]);
+      setDepartamentos([]);
+    }).finally(() => setCarregando(false));
   }, []);
 
   useEffect(() => {
@@ -448,12 +456,12 @@ function AbaUsuarios() {
                       />
                     </div>
                     <div>
-                      <label style={labelStyle(theme)}>Unidade (sigla)</label>
-                      <input
-                        type="text" value={form.unidade}
-                        onChange={e => setForm(f => ({ ...f, unidade: e.target.value }))}
-                        placeholder="Ex: CTI"
-                        style={inputStyle(theme)}
+                      <label style={labelStyle(theme)}>Unidade (sigla/lotação)</label>
+                      <DropdownHierarquico
+                        value={form.unidade || ""}
+                        onChange={val => setForm(f => ({ ...f, unidade: val }))}
+                        theme={theme}
+                        departamentos={departamentos}
                       />
                     </div>
                     <div>
@@ -713,14 +721,57 @@ function AbaSiglas() {
     }
   }
 
-  const filtradas = useMemo(() => {
+  const flatTree = useMemo(() => {
+    const map = {};
+    const siglaMap = {};
+    
+    siglas.forEach(s => {
+      const copy = { ...s, children: [] };
+      map[s.id] = copy;
+      siglaMap[s.sigla.toUpperCase()] = copy;
+    });
+
+    const roots = [];
+    siglas.forEach(s => {
+      const n = map[s.id];
+      if (n.diretoria_pai && siglaMap[n.diretoria_pai.toUpperCase()] && n.diretoria_pai.toUpperCase() !== n.sigla.toUpperCase()) {
+        siglaMap[n.diretoria_pai.toUpperCase()].children.push(n);
+      } else {
+        roots.push(n);
+      }
+    });
+
     const q = busca.toLowerCase().trim();
-    return siglas.filter(s => 
-      (s.sigla || "").toLowerCase().includes(q) ||
-      (s.nome_oficial || "").toLowerCase().includes(q) ||
-      (s.diretoria_pai || "").toLowerCase().includes(q)
-    );
+    function computeMatch(n) {
+      n.isMatch = q ? (
+        (n.sigla || "").toLowerCase().includes(q) ||
+        (n.nome_oficial || "").toLowerCase().includes(q) ||
+        (n.diretoria_pai || "").toLowerCase().includes(q)
+      ) : true;
+      n.hasMatchInChildren = false;
+      n.children.forEach(c => {
+        if (computeMatch(c)) n.hasMatchInChildren = true;
+      });
+      return n.isMatch || n.hasMatchInChildren;
+    }
+
+    if (q) {
+      roots.forEach(r => computeMatch(r));
+    }
+
+    const flat = [];
+    function flatten(nodes, level) {
+      nodes.sort((a, b) => a.sigla.localeCompare(b.sigla)).forEach(n => {
+        if (q && !n.isMatch && !n.hasMatchInChildren) return;
+        flat.push({ ...n, level });
+        flatten(n.children, level + 1);
+      });
+    }
+    flatten(roots, 0);
+    return flat;
   }, [siglas, busca]);
+
+  const [hoveredRow, setHoveredRow] = useState(null);
 
   function abrirEdicao(s) {
     setEditando(s.id);
@@ -793,6 +844,11 @@ function AbaSiglas() {
   }
 
   async function excluirSigla(id, siglaNome) {
+    const node = flatTree.find(n => n.id === id);
+    if (node && node.children && node.children.length > 0) {
+      alert("Não é possível excluir uma Coordenação que possui Divisões vinculadas.");
+      return;
+    }
     if (!window.confirm(`Deseja realmente excluir permanentemente a sigla "${siglaNome}"?`)) return;
     try {
       await deleteDepartamento(id);
@@ -858,10 +914,10 @@ function AbaSiglas() {
                 fontWeight: 600, cursor: "pointer", transition: "all 0.2s"
               }}
             >
-              {adicionando ? "Cancelar" : "+ Adicionar Nova"}
+              {adicionando ? "Cancelar" : "+ Nova Diretoria"}
             </button>
             <span style={{ fontSize: 12, color: theme.textMuted, alignSelf: "center", fontFamily: "'Inter', sans-serif" }}>
-              {filtradas.length} de {siglas.length} siglas
+              {flatTree.length} de {siglas.length} siglas
             </span>
           </div>
         </div>
@@ -879,7 +935,7 @@ function AbaSiglas() {
             
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
               <div>
-                <label style={labelStyle(theme)}>Sigla da Coordenação *</label>
+                <label style={labelStyle(theme)}>Sigla *</label>
                 <input
                   type="text" value={form.sigla}
                   onChange={e => setForm(f => ({ ...f, sigla: e.target.value }))}
@@ -888,7 +944,7 @@ function AbaSiglas() {
                 />
               </div>
               <div>
-                <label style={labelStyle(theme)}>Sigla da Diretoria</label>
+                <label style={labelStyle(theme)}>Sigla Pai (Diretoria/Coordenação)</label>
                 <input
                   type="text" value={form.diretoria_pai}
                   onChange={e => setForm(f => ({ ...f, diretoria_pai: e.target.value }))}
@@ -897,7 +953,7 @@ function AbaSiglas() {
                 />
               </div>
               <div>
-                <label style={labelStyle(theme)}>Nome por Extenso / Lotação *</label>
+                <label style={labelStyle(theme)}>Lotação / Nome por Extenso *</label>
                 <input
                   type="text" value={form.nome_oficial}
                   onChange={e => setForm(f => ({ ...f, nome_oficial: e.target.value }))}
@@ -937,7 +993,7 @@ function AbaSiglas() {
         )}
       </div>
 
-      {/* Listagem em Tabela/Grid */}
+      {/* Listagem em Árvore */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         
         {/* Cabeçalho da Listagem */}
@@ -949,32 +1005,40 @@ function AbaSiglas() {
           letterSpacing: "0.1em", textTransform: "uppercase",
           color: theme.tableHeaderColor || theme.textMuted
         }}>
-          <div>Coordenação</div>
-          <div>Diretoria</div>
-          <div>Lotação (por extenso)</div>
+          <div>Sigla da Unidade</div>
+          <div>Hierarquia Pai</div>
+          <div>Nome por Extenso</div>
           <div style={{ textAlign: "right" }}>Ações</div>
         </div>
 
-        {/* Linhas da Listagem */}
-        {filtradas.map(s => {
+        {/* Linhas da Árvore */}
+        {flatTree.map(s => {
           const isEditando = editando === s.id;
+          const isHovered = hoveredRow === s.id;
           
           return (
-            <div key={s.id} style={{
-              background: theme.tableBg, border: theme.tableBorder,
-              borderRadius: 10, overflow: "hidden",
-              transition: "all 0.2s ease",
-              borderColor: isEditando ? (theme.isDark ? "rgba(100,150,255,0.35)" : "rgba(0,80,200,0.35)") : undefined,
-              boxShadow: isEditando ? "0 4px 12px rgba(0,0,0,0.15)" : "none"
-            }}>
+            <div 
+              key={s.id} 
+              onMouseEnter={() => setHoveredRow(s.id)}
+              onMouseLeave={() => setHoveredRow(null)}
+              style={{
+                background: theme.tableBg, border: theme.tableBorder,
+                borderRadius: 10, overflow: "hidden",
+                transition: "all 0.2s ease",
+                borderColor: isEditando ? (theme.isDark ? "rgba(100,150,255,0.35)" : "rgba(0,80,200,0.35)") : undefined,
+                boxShadow: isEditando ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
+                marginLeft: s.level * 24 // Indentação por nível
+              }}
+            >
               {/* Linha Principal */}
               <div style={{
                 display: "grid", gridTemplateColumns: "180px 180px 1fr 180px",
                 alignItems: "center", gap: 16, padding: "14px 18px",
                 opacity: s.ativo !== false ? 1 : 0.6
               }}>
-                {/* Coordenação Sigla */}
-                <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 14, color: theme.textAccent }}>
+                {/* Sigla */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 14, color: s.level === 0 ? theme.textAccent : theme.textPrimary }}>
+                  {s.level > 0 && <span style={{ color: theme.textMuted, fontSize: 12, fontWeight: 400 }}>├─</span>}
                   {s.sigla}
                   {s.ativo === false && (
                     <span style={{ marginLeft: 8, fontSize: 9, padding: "1px 5px", borderRadius: 4, background: "rgba(198,40,40,0.2)", color: "#ef9a9a" }}>
@@ -983,22 +1047,40 @@ function AbaSiglas() {
                   )}
                 </div>
 
-                {/* Diretoria Sigla */}
-                <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: 13, color: theme.textPrimary }}>
+                {/* Hierarquia Pai */}
+                <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: 13, color: theme.textSecondary }}>
                   {s.diretoria_pai || "—"}
                 </div>
 
                 {/* Nome Completo por Extenso */}
-                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textSecondary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={s.nome_oficial}>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: theme.textPrimary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={s.nome_oficial}>
                   {s.nome_oficial}
                 </div>
 
                 {/* Ações */}
-                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", opacity: (isHovered || isEditando || feedback.id === s.id) ? 1 : 0, transition: "opacity 0.2s" }}>
                   {feedback.id === s.id && (
                     <span style={{ fontSize: 12, color: "#81c784", fontFamily: "'Inter', sans-serif", alignSelf: "center", marginRight: 6 }}>
                       {feedback.msg}
                     </span>
+                  )}
+                  {s.level < 2 && (
+                    <button
+                      onClick={() => {
+                        setAdicionando(true);
+                        fecharEdicao();
+                        setForm({ sigla: "", nome_oficial: "", diretoria_pai: s.sigla, ativo: true });
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      title="Adicionar filho"
+                      style={{
+                        background: "rgba(46,125,50,0.1)", border: "1px solid rgba(46,125,50,0.3)",
+                        borderRadius: 6, color: "#81c784", padding: "5px 8px", fontSize: 12,
+                        fontFamily: "'Inter', sans-serif", cursor: "pointer",
+                      }}
+                    >
+                      +
+                    </button>
                   )}
                   <button
                     onClick={() => toggleAtivo(s)}
@@ -1042,7 +1124,7 @@ function AbaSiglas() {
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
                     <div>
-                      <label style={labelStyle(theme)}>Sigla da Coordenação</label>
+                      <label style={labelStyle(theme)}>Sigla da Unidade</label>
                       <input
                         type="text" value={form.sigla}
                         onChange={e => setForm(f => ({ ...f, sigla: e.target.value }))}
@@ -1050,7 +1132,7 @@ function AbaSiglas() {
                       />
                     </div>
                     <div>
-                      <label style={labelStyle(theme)}>Sigla da Diretoria</label>
+                      <label style={labelStyle(theme)}>Sigla Pai (Diretoria/Coordenação)</label>
                       <input
                         type="text" value={form.diretoria_pai}
                         onChange={e => setForm(f => ({ ...f, diretoria_pai: e.target.value }))}
@@ -1138,7 +1220,7 @@ function AbaSiglas() {
           );
         })}
 
-        {filtradas.length === 0 && (
+        {flatTree.length === 0 && (
           <div style={{ padding: "40px", textAlign: "center", color: theme.textMuted, fontSize: 13, fontFamily: "'Inter', sans-serif" }}>
             Nenhuma sigla correspondente encontrada.
           </div>
@@ -1158,7 +1240,7 @@ function AbaAssinatura() {
   const [colaboradores, setColaboradores] = useState([]);
   const [colaboradorId, setColaboradorId] = useState("");
   const [capaId, setCapaId] = useState("");
-  const [form, setForm] = useState({ nome: "", cargo: "", lotacao: "", diretoria: "", ramal: "", email: "" });
+  const [form, setForm] = useState({ nome: "", cargo: "", divisao_nome: "", coordenacao_nome: "", diretoria_nome: "", ramal: "", email: "" });
   const [preview, setPreview] = useState(null);
   const [capaDropdownOpen, setCapaDropdownOpen] = useState(false);
   const [colabDropdownOpen, setColabDropdownOpen] = useState(false);
@@ -1180,157 +1262,21 @@ function AbaAssinatura() {
     setForm({
       nome:    colaborador.displayName || colaborador.cn || "",
       cargo:   colaborador.title || "",
-      lotacao: colaborador.department || "",
-      diretoria: colaborador.diretoria || colaborador.diretoria_sigla || "",
+      divisao_nome: colaborador.divisao_nome || "",
+      coordenacao_nome: colaborador.coordenacao_nome || "",
+      diretoria_nome: colaborador.diretoria_nome || "",
       ramal:   colaborador.telephoneNumber || "",
       email:   colaborador.mail || "",
     });
   }, [colaboradorId]);
 
-  function gerar() {
+  async function gerar() {
     const canvas = canvasEl;
     if (!canvas || !form.nome) return;
-    const ctx = canvas.getContext("2d");
-
-    const img = new Image();
-    img.crossOrigin = "anonymous";
+    
     const capa = capas.find(c => c.id === Number(capaId));
-
-    const desenharComFallback = () => {
-      // Capa não encontrada: gera com fundo padrão
-      canvas.width = 700;
-      canvas.height = 180;
-      ctx.fillStyle = "#0d1f3c";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Borda arredondada visual
-      ctx.strokeStyle = "rgba(100,150,255,0.3)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
-
-      // Logo placeholder
-      ctx.fillStyle = "#1565c0";
-      ctx.fillRect(5, 30, 140, 110); // Deslocado 15px para a esquerda (20 - 15)
-      ctx.font = "bold 28px Verdana, sans-serif";
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText("AEB", 45, 95); // Deslocado 15px para a esquerda (60 - 15)
-
-      // Linha divisória
-      ctx.strokeStyle = "rgba(255,255,255,0.15)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(160, 20); // Deslocado 15px para a esquerda (175 - 15)
-      ctx.lineTo(160, 160);
-      ctx.stroke();
-
-      // Textos
-      const textX = 161; // Deslocado 15px para a esquerda (176 - 15)
-      const startY = 44; // Ajustado para centralizar com fontes médias
-      const lineH = 16; // Espaçamento entre linhas readequado para as fontes médias (-3px do estado anterior)
-      const ramal = form.ramal || "";
-      const email = form.email || "";
-
-      ctx.font = "bold 20px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (23 - 3)
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(form.nome, textX, startY);
-
-      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
-      ctx.fillStyle = "#90caf9";
-      ctx.fillText(form.cargo, textX, startY + lineH);
-
-      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
-      ctx.fillStyle = "#CCDDEE";
-      ctx.fillText(form.lotacao, textX, startY + lineH * 2);
-
-      // Diretoria
-      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
-      ctx.fillStyle = "#CCDDEE";
-      ctx.fillText(form.diretoria || "", textX, startY + lineH * 3);
-
-      ctx.font = "bold 12px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (15 - 3)
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillText("Agência Espacial Brasileira", textX, startY + lineH * 4 + 3);
-
-      // Ramal e email
-      ctx.font = "9px Verdana, sans-serif"; // Diminuído em 3px em relação ao estado anterior (12 - 3)
-      ctx.fillStyle = "#CCDDEE";
-      ctx.fillText(`(61) ${ramal}     ${email}`, textX, startY + lineH * 5 + 6);
-
-      setPreview(canvas.toDataURL("image/png"));
-    };
-
-    if (capa) {
-      img.src = capa.arquivo;
-      img.onload = () => {
-        // Define o tamanho do canvas para o tamanho REAL da imagem
-        canvas.width = img.width;
-        canvas.height = img.height;
-
-        // Desenha a capa como fundo
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        // Usando proporções para ficar perfeito em qualquer resolução
-        const visualScale = canvas.height / 180;
-        const shiftX = 15 * (canvas.width / 700);
-        const textX = canvas.width * 0.285 - 5 - shiftX;
-        let currentY = canvas.height * 0.31 - 10 + (4 * visualScale); // Centralização vertical readequada
-        const lineSpacing = canvas.height * 0.10; // Espaço entre linhas readequado para a fonte intermediária
-
-        // Tamanhos de fonte proporcionais diminuídos em 3px visual em relação ao estado anterior (-2px do original)
-        const fontNome = Math.round(canvas.height * 0.110) + 4 - Math.round(2 * visualScale);
-        const fontMedia = Math.round(canvas.height * 0.075) - Math.round(2 * visualScale);
-        const fontPeq = fontMedia - 2; // Cargo, coordenação, diretoria, ramal/email
-        const fontAeb = Math.round(canvas.height * 0.098) - Math.round(2 * visualScale);
-
-        // Nome
-        ctx.font = `bold ${fontNome}px Verdana, sans-serif`;
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText(form.nome, textX, currentY);
-        currentY += lineSpacing;
-
-        // Cargo
-        ctx.font = `${fontPeq}px Verdana, sans-serif`;
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText(form.cargo, textX, currentY);
-        currentY += lineSpacing - (canvas.height * 0.01);
-
-        // Coordenação / Lotação
-        ctx.font = `${fontPeq}px Verdana, sans-serif`;
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText(form.lotacao, textX, currentY);
-        currentY += lineSpacing;
-
-        // Diretoria
-        ctx.font = `${fontPeq}px Verdana, sans-serif`;
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText(form.diretoria || "", textX, currentY);
-
-        currentY += lineSpacing + (canvas.height * 0.01);
-
-        // Agência Espacial Brasileira
-        ctx.font = `bold ${fontAeb}px Verdana, sans-serif`;
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText("Agência Espacial Brasileira", textX, currentY);
-        currentY += lineSpacing + (canvas.height * 0.01);
-
-        // Tratamento do ramal: garantindo que começará com (61) 2033 -
-        let ramal = form.ramal || "";
-        const apenasDigitos = String(ramal).replace(/\D/g, '');
-        const digitosFinais = apenasDigitos.slice(-4);
-        const ramalFormatado = `(61) 2033-${digitosFinais || "XXXX"}`;
-
-        // Ramal e email
-        ctx.font = `${fontPeq}px Verdana, sans-serif`;
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText(`${ramalFormatado}    ${form.email}`, textX, currentY);
-
-        // Gera preview
-        setPreview(canvas.toDataURL("image/png"));
-      };
-      img.onerror = desenharComFallback;
-    } else {
-      desenharComFallback();
-    }
+    const dataUrl = await drawSignature(canvas, form, capa ? capa.arquivo : null);
+    if (dataUrl) setPreview(dataUrl);
   }
 
   const f = (field) => (
@@ -1496,8 +1442,10 @@ function AbaAssinatura() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div><label style={labelStyle(theme)}>Nome completo</label>{f("nome")}</div>
           <div><label style={labelStyle(theme)}>Cargo</label>{f("cargo")}</div>
-          <div><label style={labelStyle(theme)}>Diretoria</label>{f("diretoria")}</div>
-          <div><label style={labelStyle(theme)}>Coordenação</label>{f("lotacao")}</div>
+          <div><label style={labelStyle(theme)}>Divisão por Extenso</label>{f("divisao_nome")}</div>
+          <div><label style={labelStyle(theme)}>Coordenação por Extenso</label>{f("coordenacao_nome")}</div>
+          <div><label style={labelStyle(theme)}>Diretoria por Extenso</label>{f("diretoria_nome")}</div>
+          <div></div>
           <div><label style={labelStyle(theme)}>Ramal</label>{f("ramal")}</div>
           <div><label style={labelStyle(theme)}>E-mail</label>{f("email")}</div>
         </div>

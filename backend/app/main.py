@@ -98,8 +98,17 @@ async def lifespan(app: FastAPI):
     # Startup: Sincroniza LDAP -> banco de dados e agenda sync periodico
     try:
         if test_db_connection():
-            print("[STARTUP] Banco conectado. Iniciando sync LDAP -> PostgreSQL...")
-            full_sync()
+            print("[STARTUP] Banco conectado. Iniciando sync LDAP -> PostgreSQL em background...")
+            
+            def startup_sync():
+                try:
+                    full_sync()
+                    print("[STARTUP] Sync inicial concluido.")
+                except Exception as e:
+                    print(f"[STARTUP] Erro no sync inicial: {e}")
+
+            # Roda o sync inicial em background para nao bloquear a inicializacao da API
+            threading.Thread(target=startup_sync, daemon=True).start()
 
             # Inicia thread de sync periodico em background
             sync_thread = threading.Thread(target=_sync_periodico, daemon=True)
@@ -149,6 +158,8 @@ class OverrideRequest(BaseModel):
     unidade: Optional[str]  = None
     visivel: Optional[bool] = None
     data_aniversario: Optional[str] = None
+    diretoria_sigla: Optional[str] = None
+    coordenacao_sigla: Optional[str] = None
 
 class DepartamentoRequest(BaseModel):
     sigla: str
@@ -230,6 +241,21 @@ def get_colaboradores_admin(
     except Exception as e:
         return {"status": "error", "message": str(e), "data": [], "total": 0}
 
+@app.get("/api/departamentos")
+def get_departamentos():
+    """Retorna todos os departamentos (ativos ou inativos) para uso publico."""
+    try:
+        from database_service import get_db_conn
+        from psycopg2.extras import RealDictCursor
+        with get_db_conn() as conn:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT id, sigla, nome_oficial, diretoria_pai, ativo FROM departamento ORDER BY sigla")
+            rows = cur.fetchall()
+            cur.close()
+            return {"status": "ok", "data": [dict(r) for r in rows]}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "data": []}
+
 @app.get("/api/admin/departamentos")
 def get_departamentos_admin(_user = Depends(require_admin)):
     """Admin — retorna todos os departamentos (ativos ou inativos) para o painel de Siglas."""
@@ -297,7 +323,7 @@ def delete_departamento_admin(id: int, _user = Depends(require_admin)):
 @app.api_route("/api/admin/colaboradores/{username}/override", methods=["PUT", "POST"])
 def set_override(username: str, body: OverrideRequest, _user = Depends(require_admin)):
     try:
-        fields = {k: v for k, v in body.dict().items() if v is not None}
+        fields = {k: v for k, v in body.model_dump().items() if v is not None}
         
         # Tratamento especial para mapear `unidade` para `unidade_sigla`
         if 'unidade' in fields:
@@ -309,10 +335,12 @@ def set_override(username: str, body: OverrideRequest, _user = Depends(require_a
             if sigla.upper() in reverse_map:
                 fields['lotacao'] = reverse_map[sigla.upper()]
             
-            # Atualiza coordenacao_sigla e diretoria_sigla automaticamente
-            fields['coordenacao_sigla'] = sigla.upper()
-            from database_service import COOR_TO_DIR
-            fields['diretoria_sigla'] = COOR_TO_DIR.get(sigla.upper(), sigla.upper())
+            # Limpa overrides estáticos para que a hierarquia seja calculada dinamicamente,
+            # exceto se vierem explicitamente na request
+            if 'diretoria_sigla' not in fields:
+                fields['diretoria_sigla'] = None
+            if 'coordenacao_sigla' not in fields:
+                fields['coordenacao_sigla'] = None
             
         upsert_colaborador(username, fields)
         return {"status": "ok", "message": f"Customizações de '{username}' salvas no banco."}
@@ -628,6 +656,9 @@ def auth_login(request: Request, body: LoginRequest, response: Response):
                 "ou":          user_info.get("ou", ""),
                 "diretoria_sigla": user_info.get("diretoria_sigla", ""),
                 "diretoria":   user_info.get("diretoria", ""),
+                "divisao_nome": user_info.get("divisao_nome", ""),
+                "coordenacao_nome": user_info.get("coordenacao_nome", ""),
+                "diretoria_nome": user_info.get("diretoria_nome", ""),
                 "ramal":       user_info.get("telephoneNumber", ""),
                 "isAdmin":     False
             }

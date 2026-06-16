@@ -217,6 +217,16 @@ export async function deleteUserPhoto(username) {
 // ------------------------------------------------------------------
 // Departamentos / Siglas
 // ------------------------------------------------------------------
+export async function fetchDepartamentos() {
+  const res = await fetch(`${BASE_URL}/api/departamentos`, {
+    headers: getHeaders(),
+    credentials: "include"
+  });
+  if (!res.ok) throw new Error("Erro ao buscar siglas");
+  const json = await res.json();
+  return json.data || [];
+}
+
 export async function fetchDepartamentosAdmin() {
   const res = await fetch(`${BASE_URL}/api/admin/departamentos`, {
     headers: getHeaders(),
